@@ -17,7 +17,7 @@ export default async function StudentAbsencesPage({
 
   const student = await getStudentForUser(schoolId, user);
   if (!student) {
-    return <EmptyState message="Aucun dossier étudiant associé." />;
+    return <EmptyState message="Aucun dossier élève associé." />;
   }
 
   // Ne récupérer STRICTEMENT QUE les absences (ABSENT ou EXCUSED/justifiées)

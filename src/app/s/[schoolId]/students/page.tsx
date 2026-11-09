@@ -49,8 +49,8 @@ export default async function StudentsPage({
   return (
     <div>
       <PageHeader
-        title="Étudiants"
-        description="Dossiers des étudiants de l'établissement."
+        title="Élèves"
+        description="Dossiers des élèves de l'établissement."
       />
       <Card className="mb-6">
         <form method="get" className="grid gap-3 md:grid-cols-[1fr_auto]">
@@ -72,7 +72,7 @@ export default async function StudentsPage({
         </form>
       </Card>
       <p className="mb-3 text-sm text-[#3d5278]">
-        {students.length} étudiant{students.length > 1 ? "s" : ""}
+        {students.length} élève{students.length > 1 ? "s" : ""}
       </p>
       <div className="grid gap-8 xl:grid-cols-[1.4fr_0.8fr]">
         <div>
@@ -136,7 +136,7 @@ export default async function StudentsPage({
             <Field label="Matricule">
               <Input name="matricule" />
             </Field>
-            <Field label="Email (pour connexion à l'espace étudiant)">
+            <Field label="Email (pour connexion à l'espace élève)">
               <Input name="email" type="email" placeholder="eleve@ecole.fr" />
             </Field>
             <Field label="Date de naissance">

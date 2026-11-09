@@ -24,7 +24,7 @@ export default async function ReleveNotesPage({
 
   const student = await getStudentForUser(schoolId, user);
   if (!student) {
-    return <EmptyState message="Dossier étudiant introuvable." />;
+    return <EmptyState message="Dossier élève introuvable." />;
   }
 
   const enrollment = student.enrollments[0];
@@ -219,7 +219,7 @@ export default async function ReleveNotesPage({
           <p className="text-xs text-[#5a7199]">Synthèse semestrielle des Contrôles Continus (CC)</p>
         </div>
 
-        {/* Fiche Étudiant */}
+        {/* Fiche Élève */}
         <div className="rounded-xl border border-[#c9d7ee] bg-[#f4f8fc] p-4 text-xs mb-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div>
             <span className="text-[#5a7199] block font-bold uppercase text-[10px]">Élève :</span>

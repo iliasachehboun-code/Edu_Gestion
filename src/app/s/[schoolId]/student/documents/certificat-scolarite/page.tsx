@@ -21,7 +21,7 @@ export default async function CertificatScolaritePage({
 
   const student = await getStudentForUser(schoolId, user);
   if (!student) {
-    return <EmptyState message="Dossier étudiant introuvable." />;
+    return <EmptyState message="Dossier élève introuvable." />;
   }
 
   const enrollment = student.enrollments[0];

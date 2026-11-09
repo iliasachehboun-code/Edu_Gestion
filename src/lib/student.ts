@@ -4,7 +4,7 @@ import type { SessionUser } from "@/lib/auth";
 
 export const getStudentForUser = cache(
   async (schoolId: string, user: SessionUser) => {
-    // 1. Cherche l'étudiant lié à cet utilisateur
+    // 1. Cherche l'élève lié à cet utilisateur
     let student = await prisma.student.findFirst({
       where: { schoolId, userId: user.id },
       include: {
@@ -17,7 +17,7 @@ export const getStudentForUser = cache(
       },
     });
 
-    // 2. Si c'est un administrateur en train de tester ou prévisualiser l'espace étudiant
+    // 2. Si c'est un administrateur en train de tester ou prévisualiser l'espace élève
     if (!student) {
       student = await prisma.student.findFirst({
         where: { schoolId },

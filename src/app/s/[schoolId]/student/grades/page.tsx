@@ -26,7 +26,7 @@ export default async function StudentGradesPage({
 
   const student = await getStudentForUser(schoolId, user);
   if (!student) {
-    return <EmptyState message="Aucun dossier étudiant trouvé." />;
+    return <EmptyState message="Aucun dossier élève trouvé." />;
   }
 
   const enrollment = student.enrollments[0];

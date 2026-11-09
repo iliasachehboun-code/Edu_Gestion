@@ -786,6 +786,36 @@ async function main() {
     },
   });
 
+  if (lucas) {
+    const existingReqs = await prisma.administrativeRequest.count({
+      where: { studentId: lucas.id },
+    });
+    if (existingReqs === 0) {
+      await prisma.administrativeRequest.createMany({
+        data: [
+          {
+            schoolId: school.id,
+            studentId: lucas.id,
+            type: "CONVENTION_STAGE",
+            title: "Convention de stage d'observation - Cabinet d'Architecture",
+            description: "Stage de découverte professionnelle en entreprise du 15 au 19 décembre 2025.",
+            status: "VALIDEE",
+            responseNote: "Convention visée et signée par le chef d'établissement.",
+          },
+          {
+            schoolId: school.id,
+            studentId: lucas.id,
+            type: "ATTESTATION_PRESENCE",
+            title: "Attestation d'assiduité scolaire - Dossier CAF / Bourses",
+            description: "Attestation de présence effective pour le dossier d'allocations.",
+            status: "EN_COURS",
+            responseNote: "En cours de signature par la Vie Scolaire.",
+          },
+        ],
+      });
+    }
+  }
+
   const [students, teachersCount, grades, fees] = await Promise.all([
     prisma.student.count({ where: { schoolId: school.id } }),
     prisma.teacher.count({ where: { schoolId: school.id } }),
@@ -794,12 +824,12 @@ async function main() {
   ]);
 
   console.log("Jeu de données démo chargé");
-  console.log(`École Démo : ${students} étudiants, ${teachersCount} enseignants, ${grades} notes, ${fees} frais`);
+  console.log(`École Démo : ${students} élèves, ${teachersCount} enseignants, ${grades} notes, ${fees} frais`);
   console.log("SuperAdmin : admin@school.app / admin123");
   console.log("Directeur  : directeur@ecole-demo.fr / demo123");
   console.log("Enseignant : prof@ecole-demo.fr / demo123");
   console.log("Parent     : parent@ecole-demo.fr / demo123");
-  console.log("Étudiant   : eleve@ecole-demo.fr / demo123");
+  console.log("Élève      : eleve@ecole-demo.fr / demo123");
 }
 
 async function ensureUser(params: {

@@ -23,7 +23,7 @@ export default async function StudentDashboardPage({
 
   const student = await getStudentForUser(schoolId, user);
   if (!student) {
-    return <EmptyState message="Aucun dossier étudiant trouvé pour cet utilisateur." />;
+    return <EmptyState message="Aucun dossier élève trouvé pour cet utilisateur." />;
   }
 
   const enrollment = student.enrollments[0];
@@ -127,7 +127,7 @@ export default async function StudentDashboardPage({
 
   return (
     <div className="space-y-8">
-      {/* En-tête profil étudiant */}
+      {/* En-tête profil élève */}
       <div className="flex flex-col gap-4 rounded-3xl bg-gradient-to-r from-[#002b5b] to-[#1a4a82] p-6 text-white shadow-lg sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#8fe3cf] font-[family-name:var(--font-fraunces)] text-2xl font-bold text-[#002b5b]">

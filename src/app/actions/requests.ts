@@ -18,7 +18,7 @@ export async function createAdministrativeRequestAction(
 
   const student = await getStudentForUser(schoolId, user);
   if (!student) {
-    return { success: false, error: "Dossier étudiant introuvable" };
+    return { success: false, error: "Dossier élève introuvable" };
   }
 
   const type = String(formData.get("type") || "ATTESTATION_PRESENCE");

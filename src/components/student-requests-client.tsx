@@ -17,12 +17,16 @@ export interface RequestItem {
 }
 
 const REQUEST_TYPES = [
-  { value: "ATTESTATION_PRESENCE", label: "📋 Attestation d'assiduité / présence" },
-  { value: "CONVENTION_STAGE", label: "🏢 Convention de stage en entreprise" },
-  { value: "CARTE_ETUDIANT", label: "🪪 Duplicata de carte d'étudiant" },
-  { value: "AMENAGEMENT_HORAIRES", label: "⏱️ Aménagement d'emploi du temps" },
-  { value: "CERTIFICAT_RADIATION", label: "📜 Certificat de radiation (Exeat)" },
-  { value: "AUTRE", label: "✉️ Autre demande spécifique" },
+  { value: "ATTESTATION_SCOLARITE", label: "📜 Certificat de scolarité officiel" },
+  { value: "ATTESTATION_PRESENCE", label: "📋 Attestation d'assiduité / présence scolaire" },
+  { value: "CARNET_CORRESPONDANCE", label: "🪪 Duplicata de carnet de correspondance / carte scolaire" },
+  { value: "CONVENTION_STAGE", label: "🏢 Convention de stage d'observation (Collège / Lycée)" },
+  { value: "DISPENSE_EPS", label: "🏥 Demande de dispense d'EPS (médicale)" },
+  { value: "CHANGEMENT_REGIME", label: "🍽️ Changement de régime (Cantine / Demi-pension / Externe)" },
+  { value: "SORTIE_EXCEPTIONNELLE", label: "🚪 Autorisation de sortie exceptionnelle" },
+  { value: "AMENAGEMENT_HORAIRES", label: "⏱️ Aménagement d'emploi du temps (PAI / PAP / PPRE)" },
+  { value: "CERTIFICAT_RADIATION", label: "📜 Certificat de radiation (Exeat - Changement d'école)" },
+  { value: "AUTRE", label: "✉️ Autre demande à la Vie Scolaire" },
 ];
 
 export function StudentRequestsClient({
@@ -37,7 +41,7 @@ export function StudentRequestsClient({
   const [isPending, startTransition] = useTransition();
   const [notification, setNotification] = useState<string | null>(null);
 
-  const [type, setType] = useState("ATTESTATION_PRESENCE");
+  const [type, setType] = useState("CARNET_CORRESPONDANCE");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
 
@@ -130,13 +134,13 @@ export function StudentRequestsClient({
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#002b5b] px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#001e42] transition active:scale-95"
         >
           <span>➕</span>
-          <span>Nouvelle Demande en Ligne</span>
+          <span>Nouvelle Demande Scolaire</span>
         </button>
       </div>
 
       {requests.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[#8fe3cf] bg-[#f4f8fc] px-6 py-12 text-center text-sm font-medium text-[#002b5b]">
-          📝 Aucune demande en cours. Cliquez sur « Nouvelle Demande » pour formuler une requête au secrétariat.
+          📝 Aucune demande en cours. Cliquez sur « Nouvelle Demande Scolaire » pour formuler une requête à la Vie Scolaire.
         </div>
       ) : (
         <>
@@ -229,13 +233,13 @@ export function StudentRequestsClient({
             <div className="flex items-start justify-between">
               <div>
                 <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#e4ecf8] px-2.5 py-1 text-xs font-bold text-[#002b5b]">
-                  🏛️ Guichet Numérique
+                  🏫 Vie Scolaire & Direction
                 </span>
                 <h3 className="mt-2 text-xl font-bold text-[#0c2340]">
-                  Nouvelle Demande Administrative
+                  Nouvelle Demande Scolaire
                 </h3>
                 <p className="mt-1 text-xs text-[#5a7199]">
-                  Transmise directement au secrétariat de l'établissement
+                  Transmise directement à la Vie Scolaire et à la Direction de l'établissement
                 </p>
               </div>
               <button
@@ -250,7 +254,7 @@ export function StudentRequestsClient({
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#3d5278]">
-                  Type de document / démarche *
+                  Type de document ou démarche scolaire *
                 </label>
                 <select
                   name="type"
@@ -276,7 +280,7 @@ export function StudentRequestsClient({
                   name="title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Ex: Demande de convention de stage - Période du 15 au 26 janvier"
+                  placeholder="Ex: Demande de carnet de correspondance perdu, dispense d'EPS, convention de stage de 3ème..."
                   className="mt-1.5 w-full rounded-xl border border-[#b7c9e6] bg-white px-3 py-2 text-sm text-[#0c2340] outline-none focus:border-[#264c93] focus:ring-2 focus:ring-[#8fe3cf]"
                   required
                 />
@@ -284,14 +288,14 @@ export function StudentRequestsClient({
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#3d5278]">
-                  Précisions complémentaires & organisme demandeur
+                  Précisions complémentaires (motif, dates, entreprise, médecin...)
                 </label>
                 <textarea
                   name="description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={3}
-                  placeholder="Indiquez toute information utile (nom de l'entreprise, organisme demandeur, motif particulier)..."
+                  placeholder="Indiquez toute précision utile pour la Vie Scolaire..."
                   className="mt-1.5 w-full rounded-xl border border-[#b7c9e6] bg-white px-3 py-2 text-sm text-[#0c2340] outline-none focus:border-[#264c93] focus:ring-2 focus:ring-[#8fe3cf]"
                 />
               </div>
@@ -310,7 +314,7 @@ export function StudentRequestsClient({
                   disabled={isPending || !title.trim()}
                   className="bg-[#002b5b] text-white hover:bg-[#001e42] px-5 py-2 text-xs font-bold shadow-sm"
                 >
-                  {isPending ? "Transmission en cours..." : "Soumettre la demande"}
+                  {isPending ? "Transmission en cours..." : "Soumettre à la Vie Scolaire"}
                 </Button>
               </div>
             </form>

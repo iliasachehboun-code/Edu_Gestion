@@ -78,7 +78,7 @@ export default async function SchoolLayout({
       {
         title: "B. GESTION SCOLAIRE",
         items: [
-          { href: `${base}/students`, label: "Étudiants" },
+          { href: `${base}/students`, label: "Élèves" },
           { href: `${base}/admissions`, label: "Admissions et inscriptions" },
           { href: `${base}/classes`, label: "Classes et groupes" },
           { href: `${base}/subjects`, label: "Matières et programmes" },
@@ -120,7 +120,7 @@ export default async function SchoolLayout({
       : role === "TEACHER"
         ? "Enseignant"
         : role === "STUDENT"
-          ? "Étudiant"
+          ? "Élève"
           : "Parent";
 
   return (

@@ -64,7 +64,7 @@ export default async function HomeworkPage({
           <Table>
             <thead>
               <tr>
-                <Th>Étudiant</Th>
+                <Th>Élève</Th>
                 <Th>Matière</Th>
                 <Th>Titre</Th>
                 <Th>Note</Th>
@@ -107,7 +107,7 @@ export default async function HomeworkPage({
             className="space-y-3"
           >
             <input type="hidden" name="type" value="DEVOIR" />
-            <Field label="Étudiant">
+            <Field label="Élève">
               <Select name="studentId" required>
                 {students.map((s) => (
                   <option key={s.id} value={s.id}>

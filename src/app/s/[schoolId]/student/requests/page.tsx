@@ -20,7 +20,7 @@ export default async function StudentRequestsPage({
 
   const student = await getStudentForUser(schoolId, user);
   if (!student) {
-    return <EmptyState message="Dossier étudiant introuvable." />;
+    return <EmptyState message="Dossier élève introuvable." />;
   }
 
   const requests = await prisma.administrativeRequest.findMany({

@@ -20,8 +20,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Henri Moissan — Groupe scolaire & Espace Étudiant",
-  description: "Espace de gestion du groupe scolaire Henri Moissan et portail étudiant",
+  title: "Henri Moissan — Groupe scolaire & Espace Élève",
+  description: "Espace de gestion du groupe scolaire Henri Moissan et portail élève",
   icons: {
     icon: "/henri-moissan.png",
     apple: "/henri-moissan.png",

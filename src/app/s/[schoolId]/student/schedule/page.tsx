@@ -103,7 +103,7 @@ export default async function StudentSchedulePage({
 
   const student = await getStudentForUser(schoolId, user);
   if (!student) {
-    return <EmptyState message="Aucun profil étudiant associé." />;
+    return <EmptyState message="Aucun profil élève associé." />;
   }
 
   const enrollment = student.enrollments[0];
