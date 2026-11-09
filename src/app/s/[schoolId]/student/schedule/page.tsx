@@ -1,11 +1,15 @@
+import Link from "next/link";
 import { requireSchoolAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getStudentForUser } from "@/lib/student";
-import { Card, EmptyState, PageHeader } from "@/components/ui";
+import { Card, EmptyState, PageHeader, Button } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
-import { DAYS, fullName } from "@/lib/utils";
+import { fullName } from "@/lib/utils";
 
-const SUBJECT_COLORS: Record<string, { bg: string; text: string; border: string; badge: string }> = {
+const SUBJECT_COLORS: Record<
+  string,
+  { bg: string; text: string; border: string; badge: string }
+> = {
   Mathématiques: {
     bg: "bg-[#e8f1ff]",
     text: "text-[#002b5b]",
@@ -50,12 +54,51 @@ const SUBJECT_COLORS: Record<string, { bg: string; text: string; border: string;
   },
 };
 
+// Fonctions utilitaires pour le calcul et formatage dynamique des dates de la semaine
+function getMonday(dateInput: Date) {
+  const d = new Date(dateInput);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(d.setDate(diff));
+  monday.setHours(0, 0, 0, 0);
+  return monday;
+}
+
+function addDays(d: Date, days: number) {
+  const result = new Date(d);
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
+function toISODate(d: Date) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatWeekRange(monday: Date, friday: Date) {
+  const startDay = monday.getDate();
+  const startMonth = monday.toLocaleDateString("fr-FR", { month: "long" });
+  const endDay = friday.getDate();
+  const endMonth = friday.toLocaleDateString("fr-FR", { month: "long" });
+  const year = friday.getFullYear();
+
+  if (startMonth === endMonth) {
+    return `Semaine du ${startDay} au ${endDay} ${endMonth} ${year}`;
+  }
+  return `Semaine du ${startDay} ${startMonth} au ${endDay} ${endMonth} ${year}`;
+}
+
 export default async function StudentSchedulePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ schoolId: string }>;
+  searchParams: Promise<{ date?: string }>;
 }) {
   const { schoolId } = await params;
+  const sp = await searchParams;
   const { user } = await requireSchoolAccess(schoolId, ["STUDENT", "SCHOOL_ADMIN"]);
 
   const student = await getStudentForUser(schoolId, user);
@@ -76,6 +119,24 @@ export default async function StudentSchedulePage({
     );
   }
 
+  // Calcul dynamique de la semaine sélectionnée
+  const refDate = sp.date ? new Date(sp.date) : new Date();
+  const validRefDate = isNaN(refDate.getTime()) ? new Date() : refDate;
+  const monday = getMonday(validRefDate);
+  const friday = addDays(monday, 4);
+
+  const prevWeekStr = toISODate(addDays(monday, -7));
+  const nextWeekStr = toISODate(addDays(monday, 7));
+  const todayStr = toISODate(new Date());
+
+  const weekDays = [
+    { value: 1, label: "Lundi", date: monday },
+    { value: 2, label: "Mardi", date: addDays(monday, 1) },
+    { value: 3, label: "Mercredi", date: addDays(monday, 2) },
+    { value: 4, label: "Jeudi", date: addDays(monday, 3) },
+    { value: 5, label: "Vendredi", date: friday },
+  ];
+
   const [timeSlots, entries] = await Promise.all([
     prisma.timeSlot.findMany({
       where: { schoolId },
@@ -92,18 +153,62 @@ export default async function StudentSchedulePage({
     }),
   ]);
 
-  // Jours de la semaine complète (Lundi à Vendredi)
-  const displayDays = DAYS.filter((d) => d.value <= 5);
-
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Emploi du temps de la semaine"
-        description={`Planning complet du Lundi au Vendredi — Classe de ${enrollment.class.name} (${enrollment.academicYear.name})`}
+        title="Emploi du temps"
+        description={`Planning hebdomadaire de la classe de ${enrollment.class.name} (${enrollment.academicYear.name})`}
         actions={<PrintButton />}
       />
 
-      {/* Cartes d'information */}
+      {/* Bannière dynamique avec la date de la semaine et les contrôles pour changer de semaine */}
+      <div className="flex flex-col gap-4 rounded-2xl bg-gradient-to-r from-[#002b5b] to-[#1a4a82] p-5 text-white shadow-md sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#8fe3cf] text-xl font-bold text-[#002b5b] shadow-xs">
+            📅
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#8fe3cf]">
+              Semaine en cours
+            </p>
+            <h2 className="font-[family-name:var(--font-fraunces)] text-lg font-bold sm:text-xl">
+              {formatWeekRange(monday, friday)}
+            </h2>
+          </div>
+        </div>
+
+        {/* Contrôles interactifs pour changer de semaine */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href={`/s/${schoolId}/student/schedule?date=${prevWeekStr}`}>
+            <Button
+              variant="secondary"
+              className="bg-white/10 text-white border-white/20 hover:bg-white/20 text-xs px-3 py-1.5"
+            >
+              &larr; Semaine préc.
+            </Button>
+          </Link>
+
+          <Link href={`/s/${schoolId}/student/schedule`}>
+            <Button
+              variant="secondary"
+              className="bg-[#8fe3cf] text-[#002b5b] border-transparent hover:bg-[#7ed1be] text-xs px-3.5 py-1.5 font-bold"
+            >
+              Aujourd&apos;hui
+            </Button>
+          </Link>
+
+          <Link href={`/s/${schoolId}/student/schedule?date=${nextWeekStr}`}>
+            <Button
+              variant="secondary"
+              className="bg-white/10 text-white border-white/20 hover:bg-white/20 text-xs px-3 py-1.5"
+            >
+              Semaine suiv. &rarr;
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Résumé de classe */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card className="flex items-center gap-3 py-3 border-l-4 border-l-[#002b5b]">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#e5f8f3] text-lg font-bold text-[#002b5b]">
@@ -120,7 +225,7 @@ export default async function StudentSchedulePage({
             📚
           </div>
           <div>
-            <p className="text-xs text-[#3d5278]">Total hebdomadaire</p>
+            <p className="text-xs text-[#3d5278]">Volume hebdomadaire</p>
             <p className="text-sm font-bold text-[#0c2340]">{entries.length} heures de cours / semaine</p>
           </div>
         </Card>
@@ -130,12 +235,13 @@ export default async function StudentSchedulePage({
             🗓️
           </div>
           <div>
-            <p className="text-xs text-[#3d5278]">Période</p>
-            <p className="text-sm font-bold text-[#0c2340]">Semaine complète (Lundi - Vendredi)</p>
+            <p className="text-xs text-[#3d5278]">Année scolaire</p>
+            <p className="text-sm font-bold text-[#0c2340]">{enrollment.academicYear.name}</p>
           </div>
         </Card>
       </div>
 
+      {/* Grille hebdomadaire avec en-têtes dynamiques par date */}
       {timeSlots.length === 0 ? (
         <EmptyState message="Aucun créneau horaire configuré dans l'établissement." />
       ) : (
@@ -146,14 +252,37 @@ export default async function StudentSchedulePage({
                 <th className="w-28 px-4 py-3.5 font-bold tracking-wider text-xs uppercase text-[#8fe3cf]">
                   Créneau
                 </th>
-                {displayDays.map((d) => (
-                  <th
-                    key={d.value}
-                    className="min-w-[170px] px-4 py-3.5 font-bold text-center text-sm"
-                  >
-                    {d.label}
-                  </th>
-                ))}
+                {weekDays.map((d) => {
+                  const dayISODate = toISODate(d.date);
+                  const isToday = dayISODate === todayStr;
+                  const dayNumber = d.date.getDate();
+                  const monthShort = d.date.toLocaleDateString("fr-FR", {
+                    month: "short",
+                  });
+
+                  return (
+                    <th
+                      key={d.value}
+                      className={`min-w-[170px] px-4 py-3.5 text-center ${
+                        isToday ? "bg-[#1a4a82]" : ""
+                      }`}
+                    >
+                      <div className="font-bold text-sm text-white">
+                        {d.label}
+                      </div>
+                      <div className="mt-0.5 flex items-center justify-center gap-1.5">
+                        <span className="text-xs text-[#8fe3cf] font-medium">
+                          {dayNumber} {monthShort}
+                        </span>
+                        {isToday ? (
+                          <span className="rounded-full bg-[#8fe3cf] px-2 py-0.2 text-[9px] font-extrabold uppercase tracking-wider text-[#002b5b]">
+                            Aujourd&apos;hui
+                          </span>
+                        ) : null}
+                      </div>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
@@ -175,7 +304,9 @@ export default async function StudentSchedulePage({
                       </div>
                     </td>
 
-                    {displayDays.map((d) => {
+                    {weekDays.map((d) => {
+                      const dayISODate = toISODate(d.date);
+                      const isToday = dayISODate === todayStr;
                       const entry = entries.find(
                         (e) =>
                           e.timeSlotId === slot.id && e.dayOfWeek === d.value
@@ -192,7 +323,9 @@ export default async function StudentSchedulePage({
                       return (
                         <td
                           key={d.value}
-                          className="p-2 border-r border-[#f0f4fa] last:border-r-0 align-top"
+                          className={`p-2 border-r border-[#f0f4fa] last:border-r-0 align-top ${
+                            isToday ? "bg-[#f0f7ff]/40" : ""
+                          }`}
                         >
                           {entry ? (
                             <div
@@ -212,7 +345,9 @@ export default async function StudentSchedulePage({
                               </div>
 
                               <div className="mt-2 flex items-center justify-between text-xs">
-                                <span className={`truncate text-[11px] font-medium opacity-90 ${colors.text}`}>
+                                <span
+                                  className={`truncate text-[11px] font-medium opacity-90 ${colors.text}`}
+                                >
                                   {fullName(
                                     entry.teacher.firstName,
                                     entry.teacher.lastName
