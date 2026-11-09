@@ -39,6 +39,8 @@ export default async function SchoolLayout({
       { href: `${base}/student/schedule`, label: "Emploi du temps" },
       { href: `${base}/student/grades`, label: "Notes & Bulletins" },
       { href: `${base}/student/attendance`, label: "Mes Absences" },
+      { href: `${base}/student/documents`, label: "Documents Officiels" },
+      { href: `${base}/student/requests`, label: "Demandes Administratives" },
       {
         href: `${base}/student/notifications`,
         label: unread ? `Notifications (${unread})` : "Notifications",
@@ -122,7 +124,7 @@ export default async function SchoolLayout({
           : "Parent";
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen flex-col md:flex-row bg-[#f4f8fc]">
       <SchoolNav
         schoolId={schoolId}
         schoolName={access.school.name}
@@ -131,7 +133,7 @@ export default async function SchoolLayout({
         items={items}
         sections={sections}
       />
-      <main className="min-w-0 flex-1 overflow-auto px-6 py-8 lg:px-10">{children}</main>
+      <main className="min-w-0 flex-1 overflow-auto px-4 py-6 sm:px-6 lg:px-10">{children}</main>
     </div>
   );
 }

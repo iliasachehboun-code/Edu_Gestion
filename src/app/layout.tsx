@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { DM_Sans, Fraunces } from "next/font/google";
 import "./globals.css";
 
@@ -12,10 +12,26 @@ const fraunces = Fraunces({
   subsets: ["latin"],
 });
 
+export const viewport: Viewport = {
+  themeColor: "#002b5b",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
+
 export const metadata: Metadata = {
-  title: "Henri Moissan — Groupe scolaire",
-  description: "Espace de gestion du groupe scolaire Henri Moissan",
-  icons: { icon: "/henri-moissan.png" },
+  title: "Henri Moissan — Groupe scolaire & Espace Étudiant",
+  description: "Espace de gestion du groupe scolaire Henri Moissan et portail étudiant",
+  icons: {
+    icon: "/henri-moissan.png",
+    apple: "/henri-moissan.png",
+  },
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "EduGestion",
+  },
 };
 
 export default function RootLayout({

@@ -35,16 +35,28 @@ export default async function StudentAbsencesPage({
     orderBy: { date: "desc" },
   });
 
-  const formattedAbsences: AttendanceRowItem[] = absences.map((a) => ({
-    id: a.id,
-    date: a.date.toISOString(),
-    time: a.time,
-    status: a.status,
-    justified: a.justified || a.status === "EXCUSED",
-    reason: a.reason,
-    subjectName:
-      a.subject?.name || a.teacher?.specialty || "Matière générale",
-  }));
+  const formattedAbsences: AttendanceRowItem[] = absences.map((a) => {
+    let justificationStatus = a.justificationStatus || "NON_JUSTIFIE";
+    if (justificationStatus === "NON_JUSTIFIE" && (a.justified || a.status === "EXCUSED")) {
+      justificationStatus = "JUSTIFIE_VALIDE";
+    }
+
+    return {
+      id: a.id,
+      date: a.date.toISOString(),
+      time: a.time,
+      status: a.status,
+      justified: a.justified || a.status === "EXCUSED" || justificationStatus === "JUSTIFIE_VALIDE",
+      justificationStatus,
+      justificationType: a.justificationType,
+      justificationComment: a.justificationComment,
+      rejectionReason: a.rejectionReason,
+      hasFile: Boolean(a.justificationFile),
+      reason: a.reason,
+      subjectName:
+        a.subject?.name || a.teacher?.specialty || "Matière générale",
+    };
+  });
 
   return (
     <div className="space-y-8">

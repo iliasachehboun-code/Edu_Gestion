@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useTransition } from "react";
 import { Badge, Button, Card, Table, Td, Th } from "@/components/ui";
 import { justifyAttendanceAction } from "@/app/actions/attendance";
 import { formatDate } from "@/lib/utils";
+import { compressImageToWebP } from "@/lib/image-compression";
 
 export interface AttendanceRowItem {
   id: string;
@@ -11,8 +12,13 @@ export interface AttendanceRowItem {
   time?: string | null;
   status: string;
   justified: boolean;
+  justificationStatus?: string;
   reason?: string | null;
   subjectName: string;
+  hasFile?: boolean;
+  justificationType?: string | null;
+  justificationComment?: string | null;
+  rejectionReason?: string | null;
 }
 
 export function StudentAttendanceTable({
@@ -25,18 +31,19 @@ export function StudentAttendanceTable({
   const [absences, setAbsences] = useState<AttendanceRowItem[]>(initialAbsences);
   const [selectedItem, setSelectedItem] = useState<AttendanceRowItem | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [notification, setNotification] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ type: "success" | "info" | "warning"; message: string } | null>(null);
 
   // Form states in modal
   const [reasonType, setReasonType] = useState("Certificat médical");
   const [comment, setComment] = useState("");
-  const [fileName, setFileName] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileCompressionInfo, setFileCompressionInfo] = useState<string | null>(null);
+  const [isCompressing, setIsCompressing] = useState(false);
 
   // Camera states
   const [inputMode, setInputMode] = useState<"file" | "camera">("file");
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
-  const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
@@ -57,10 +64,20 @@ export function StudentAttendanceTable({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [openDropdownId]);
 
-  const justifiedCount = absences.filter((a) => a.justified || a.status === "EXCUSED").length;
-  const unjustifiedCount = absences.length - justifiedCount;
+  // Compteurs du workflow strict à 3 états
+  const validatedCount = absences.filter(
+    (a) => a.justificationStatus === "JUSTIFIE_VALIDE" || (a.justified && a.justificationStatus !== "EN_ATTENTE_VALIDATION")
+  ).length;
 
-  // Cleanup camera stream
+  const pendingCount = absences.filter(
+    (a) => a.justificationStatus === "EN_ATTENTE_VALIDATION"
+  ).length;
+
+  const unjustifiedCount = absences.filter(
+    (a) => a.justificationStatus === "NON_JUSTIFIE" || (!a.justified && a.justificationStatus !== "EN_ATTENTE_VALIDATION" && a.justificationStatus !== "JUSTIFIE_VALIDE")
+  ).length;
+
+  // Cleanup caméra
   const stopCamera = () => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
@@ -69,7 +86,6 @@ export function StudentAttendanceTable({
     setIsCameraActive(false);
   };
 
-  // Manage camera stream lifecycle
   useEffect(() => {
     if (isCameraActive) {
       let activeStream: MediaStream | null = null;
@@ -110,9 +126,9 @@ export function StudentAttendanceTable({
     setSelectedItem(item);
     setReasonType("Certificat médical");
     setComment("");
-    setFileName(null);
+    setSelectedFile(null);
+    setFileCompressionInfo(null);
     setCapturedPhoto(null);
-    setCapturedBlob(null);
     setCameraError(null);
     setInputMode(mode);
 
@@ -130,7 +146,8 @@ export function StudentAttendanceTable({
     }
   };
 
-  const handleTakePhoto = () => {
+  // Capture caméra avec compression WebP automatique
+  const handleTakePhoto = async () => {
     if (!videoRef.current) return;
     const video = videoRef.current;
     const canvas = document.createElement("canvas");
@@ -140,60 +157,59 @@ export function StudentAttendanceTable({
     const ctx = canvas.getContext("2d");
     if (ctx) {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
-      setCapturedPhoto(dataUrl);
+      const rawDataUrl = canvas.toDataURL("image/jpeg", 0.95);
+      setCapturedPhoto(rawDataUrl);
 
+      setIsCompressing(true);
       canvas.toBlob(
-        (blob) => {
+        async (blob) => {
           if (blob) {
-            setCapturedBlob(blob);
-            const generatedName = `photo_certificat_${Date.now().toString().slice(-4)}.jpg`;
-            setFileName(generatedName);
+            const compressed = await compressImageToWebP(blob, 1200, 0.82);
+            setSelectedFile(compressed);
+            const sizeKb = Math.round(compressed.size / 1024);
+            setFileCompressionInfo(`WebP optimisé (${sizeKb} Ko) - Prêt pour l'envoi sécurisé`);
           }
+          setIsCompressing(false);
         },
         "image/jpeg",
-        0.9
+        0.95
       );
     }
 
     stopCamera();
   };
 
-  const handleRetakePhoto = () => {
-    setCapturedPhoto(null);
-    setCapturedBlob(null);
-    setFileName(null);
-    setIsCameraActive(true);
+  // Sélection de fichier avec compression WebP automatique
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsCompressing(true);
+    try {
+      const originalSize = Math.round(file.size / 1024);
+      const compressed = await compressImageToWebP(file, 1200, 0.82);
+      const compressedSize = Math.round(compressed.size / 1024);
+
+      setSelectedFile(compressed);
+      setCapturedPhoto(null);
+      setFileCompressionInfo(
+        file.type === "application/pdf"
+          ? `Document PDF (${originalSize} Ko)`
+          : `WebP compressé : ${compressedSize} Ko (au lieu de ${originalSize} Ko)`
+      );
+    } catch (err) {
+      console.error(err);
+      setSelectedFile(file);
+    } finally {
+      setIsCompressing(false);
+    }
   };
 
-  const handleQuickJustify = (item: AttendanceRowItem) => {
-    const formData = new FormData();
-    formData.append("reasonType", "Certificat médical");
-    formData.append("comment", "Dépôt rapide en ligne");
-
-    startTransition(async () => {
-      try {
-        await justifyAttendanceAction(schoolId, item.id, formData);
-        setAbsences((prev) =>
-          prev.map((a) =>
-            a.id === item.id
-              ? {
-                  ...a,
-                  justified: true,
-                  status: "EXCUSED",
-                  reason: "Certificat médical (Dépôt rapide en ligne)",
-                }
-              : a
-          )
-        );
-        setNotification(
-          `L'absence du ${formatDate(item.date)} a été automatiquement justifiée par Certificat médical !`
-        );
-        setTimeout(() => setNotification(null), 5000);
-      } catch (err) {
-        console.error(err);
-      }
-    });
+  const handleRetakePhoto = () => {
+    setCapturedPhoto(null);
+    setSelectedFile(null);
+    setFileCompressionInfo(null);
+    setIsCameraActive(true);
   };
 
   const handleSubmitModal = (e: React.FormEvent<HTMLFormElement>) => {
@@ -201,306 +217,449 @@ export function StudentAttendanceTable({
     if (!selectedItem) return;
 
     const formData = new FormData(e.currentTarget);
-
-    // Si une photo a été prise via la caméra, on l'ajoute au formData
-    if (capturedBlob) {
-      const photoFile = new File(
-        [capturedBlob],
-        fileName || "photo_certificat.jpg",
-        { type: "image/jpeg" }
-      );
-      formData.set("certificateFile", photoFile);
+    if (selectedFile) {
+      formData.set("certificateFile", selectedFile);
     }
 
     startTransition(async () => {
       try {
-        await justifyAttendanceAction(schoolId, selectedItem.id, formData);
-        const displayReason = `${reasonType}${comment ? ` (${comment})` : ""}${
-          fileName ? ` [Pièce: ${fileName}]` : ""
-        }`;
+        const result = await justifyAttendanceAction(schoolId, selectedItem.id, formData);
 
+        // Mise à jour de l'état vers EN_ATTENTE_VALIDATION (Workflow strict)
         setAbsences((prev) =>
           prev.map((a) =>
             a.id === selectedItem.id
               ? {
                   ...a,
-                  justified: true,
-                  status: "EXCUSED",
-                  reason: displayReason,
+                  justified: false,
+                  justificationStatus: "EN_ATTENTE_VALIDATION",
+                  hasFile: Boolean(selectedFile),
+                  justificationType: reasonType,
+                  justificationComment: comment || null,
+                  reason: `${reasonType}${comment ? ` (${comment})` : ""} - En attente de validation`,
                 }
               : a
           )
         );
 
-        setNotification(
-          `Votre certificat a été enregistré. L'absence du ${formatDate(
-            selectedItem.date
-          )} est maintenant justifiée !`
-        );
+        setNotification({
+          type: "warning",
+          message: `Votre justificatif pour le cours de ${selectedItem.subjectName} a été transmis avec succès. Il est désormais en attente de validation par la scolarité.`,
+        });
+
         stopCamera();
         setSelectedItem(null);
-        setTimeout(() => setNotification(null), 6000);
+        setTimeout(() => setNotification(null), 8000);
       } catch (err) {
         console.error(err);
       }
     });
   };
 
+  // Badge du statut workflow
+  const renderStatusBadge = (status?: string, justified?: boolean) => {
+    if (status === "JUSTIFIE_VALIDE" || justified) {
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#d7f6ee] px-3 py-1 text-xs font-bold text-[#002b5b]">
+          <span className="h-2 w-2 rounded-full bg-[#00875a]"></span>
+          Justifiée (Validée)
+        </span>
+      );
+    }
+    if (status === "EN_ATTENTE_VALIDATION") {
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#fff4b8] px-3 py-1 text-xs font-bold text-[#b45309]">
+          <span className="h-2 w-2 rounded-full bg-[#d97706] animate-pulse"></span>
+          En attente de validation
+        </span>
+      );
+    }
+    if (status === "JUSTIFIE_REFUSE") {
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#fce7f3] px-3 py-1 text-xs font-bold text-[#9d174d]">
+          <span className="h-2 w-2 rounded-full bg-[#db2777]"></span>
+          Justificatif refusé
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-[#ffe4e6] px-3 py-1 text-xs font-bold text-[#9f1239]">
+        <span className="h-2 w-2 rounded-full bg-[#be123c] animate-pulse"></span>
+        Non justifiée
+      </span>
+    );
+  };
+
   return (
-    <div className="space-y-8">
-      {/* Bannière de confirmation dynamique */}
+    <div className="space-y-6">
+      {/* Bannière de notification dynamique */}
       {notification ? (
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#8fe3cf] bg-[#d7f6ee] px-4 py-3 text-sm font-semibold text-[#002b5b] shadow-sm animate-in fade-in slide-in-from-top-2">
+        <div
+          className={`flex items-start justify-between gap-3 rounded-2xl border p-4 text-sm font-semibold shadow-sm animate-in fade-in slide-in-from-top-2 ${
+            notification.type === "warning"
+              ? "border-[#f59e0b] bg-[#fffbeb] text-[#92400e]"
+              : "border-[#8fe3cf] bg-[#d7f6ee] text-[#002b5b]"
+          }`}
+        >
           <div className="flex items-center gap-2.5">
-            <span className="text-lg">🎉</span>
-            <span>{notification}</span>
+            <span className="text-xl">
+              {notification.type === "warning" ? "⏳" : "🎉"}
+            </span>
+            <span>{notification.message}</span>
           </div>
           <button
             onClick={() => setNotification(null)}
-            className="text-xs font-bold text-[#002b5b] hover:opacity-75"
+            className="text-xs font-bold hover:opacity-75"
           >
             ✕
           </button>
         </div>
       ) : null}
 
-      {/* Cartes récapitulatives avec mise à jour automatique */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card className="border-l-4 border-l-[#be123c]">
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#3d5278]">
-            Total des absences
+      {/* Cartes récapitulatives avec Workflow strict */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Card className="border-l-4 border-l-[#be123c] p-4">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-[#3d5278]">
+            Total absences
           </p>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-[#9f1239]">
+          <div className="mt-1 flex items-baseline gap-1.5">
+            <span className="text-2xl sm:text-3xl font-extrabold text-[#9f1239]">
               {absences.length}
             </span>
-            <span className="text-sm font-medium text-[#3d5278]">
-              absence{absences.length > 1 ? "s" : ""}
-            </span>
+            <span className="text-xs text-[#5a7199]">séance{absences.length > 1 ? "s" : ""}</span>
           </div>
-          <p className="mt-2 text-xs text-[#5a7199]">Sur l'année en cours</p>
         </Card>
 
-        <Card className="border-l-4 border-l-[#f59e0b]">
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#3d5278]">
-            Absences non justifiées
+        <Card className="border-l-4 border-l-[#f59e0b] p-4">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-[#3d5278]">
+            Non justifiées
           </p>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-[#d97706]">
+          <div className="mt-1 flex items-baseline gap-1.5">
+            <span className="text-2xl sm:text-3xl font-extrabold text-[#d97706]">
               {unjustifiedCount}
             </span>
-            <span className="text-sm font-medium text-[#3d5278]">
-              {unjustifiedCount > 0 ? "à régulariser" : "Aucune restante"}
-            </span>
+            <span className="text-xs text-[#5a7199]">à régulariser</span>
           </div>
-          <p className="mt-2 text-xs text-[#5a7199]">
-            {unjustifiedCount > 0
-              ? "Déposez vos certificats ou prenez-les en photo"
-              : "Toutes vos absences sont régularisées"}
-          </p>
         </Card>
 
-        <Card className="border-l-4 border-l-[#002b5b]">
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#3d5278]">
-            Absences justifiées
+        <Card className="border-l-4 border-l-[#3b82f6] p-4">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-[#3d5278]">
+            En cours d'examen
           </p>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-[#002b5b]">
-              {justifiedCount}
+          <div className="mt-1 flex items-baseline gap-1.5">
+            <span className="text-2xl sm:text-3xl font-extrabold text-[#2563eb]">
+              {pendingCount}
             </span>
-            <span className="text-sm font-medium text-[#3d5278]">validées</span>
+            <span className="text-xs text-[#5a7199]">par la scolarité</span>
           </div>
-          <p className="mt-2 text-xs text-[#5a7199]">
-            Certificats médicaux & photos validés
+        </Card>
+
+        <Card className="border-l-4 border-l-[#002b5b] p-4">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-[#3d5278]">
+            Validées
           </p>
+          <div className="mt-1 flex items-baseline gap-1.5">
+            <span className="text-2xl sm:text-3xl font-extrabold text-[#002b5b]">
+              {validatedCount}
+            </span>
+            <span className="text-xs text-[#5a7199]">acceptées</span>
+          </div>
         </Card>
       </div>
 
-      {/* Tableau des Absences : Date, Heure, Matière, Statut, Justification / Certificat */}
-      <div className="space-y-4">
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-xl font-semibold text-[#0c2340]">
-            Liste de vos absences
+      {/* Titre et mention sécurisée */}
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between pt-2">
+        <div>
+          <h2 className="text-xl font-bold text-[#0c2340]">
+            Relevé de vos absences
           </h2>
-          <span className="text-xs text-[#5a7199]">
-            Statut mis à jour automatiquement dès l'enregistrement d'un certificat
-          </span>
+          <p className="text-xs text-[#5a7199]">
+            Stockage médical sécurisé hors accès public & validation par la vie scolaire.
+          </p>
         </div>
+      </div>
 
-        {absences.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-[#8fe3cf] bg-[#f4f8fc] px-6 py-12 text-center text-sm font-medium text-[#002b5b]">
-            🎉 Aucune absence enregistrée. Félicitations pour votre assiduité !
-          </div>
-        ) : (
-          <Table>
-            <thead>
-              <tr>
-                <Th>Date</Th>
-                <Th>Heure</Th>
-                <Th>Matière</Th>
-                <Th>Statut</Th>
-                <Th>Justification / Certificat</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {absences.map((item, index) => {
-                const isJustified = item.justified || item.status === "EXCUSED";
-                const timeDisplay = item.time || "08h00 - 10h00";
-                const isLast = index === absences.length - 1 && absences.length > 2;
+      {absences.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-[#8fe3cf] bg-[#f4f8fc] px-6 py-12 text-center text-sm font-medium text-[#002b5b]">
+          🎉 Aucune absence enregistrée. Félicitations pour votre assiduité !
+        </div>
+      ) : (
+        <>
+          {/* 📱 VERSION MOBILE : CARTES EMPILÉES RESPONSIVES (< md) */}
+          <div className="block md:hidden space-y-3">
+            {absences.map((item, index) => {
+              const isApproved =
+                item.justificationStatus === "JUSTIFIE_VALIDE" ||
+                (item.justified && item.justificationStatus !== "EN_ATTENTE_VALIDATION");
+              const isPendingVal = item.justificationStatus === "EN_ATTENTE_VALIDATION";
+              const isRejected = item.justificationStatus === "JUSTIFIE_REFUSE";
+              const timeDisplay = item.time || "08h00 - 10h00";
 
-                return (
-                  <tr
-                    key={item.id}
-                    className="transition-colors hover:bg-[#f9fbfd]"
-                  >
-                    {/* Date */}
-                    <Td className="font-semibold text-[#0c2340] whitespace-nowrap">
-                      {formatDate(item.date)}
-                    </Td>
+              return (
+                <div
+                  key={item.id}
+                  className="rounded-2xl border border-[#c9d7ee] bg-white p-4 shadow-sm space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="font-bold text-base text-[#0c2340]">
+                        {item.subjectName}
+                      </h3>
+                      <p className="text-xs font-semibold text-[#002b5b] mt-0.5">
+                        📅 {formatDate(item.date)}
+                      </p>
+                    </div>
+                    <span className="rounded-lg bg-[#e4ecf8] px-2 py-0.5 text-xs font-bold text-[#002b5b]">
+                      ⏱️ {timeDisplay}
+                    </span>
+                  </div>
 
-                    {/* Heure */}
-                    <Td className="text-sm font-medium text-[#264c93] whitespace-nowrap">
-                      <span className="inline-block rounded-lg bg-[#e4ecf8] px-2.5 py-1 text-xs font-bold text-[#002b5b]">
-                        ⏱️ {timeDisplay}
-                      </span>
-                    </Td>
+                  <div className="flex items-center justify-between border-t border-[#f0f4f9] pt-2">
+                    <div>{renderStatusBadge(item.justificationStatus, item.justified)}</div>
+                    {item.hasFile && (
+                      <a
+                        href={`/api/s/${schoolId}/attendance/${item.id}/file`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-bold text-[#264c93] hover:underline"
+                      >
+                        <span>🔒 Voir la pièce</span>
+                      </a>
+                    )}
+                  </div>
 
-                    {/* Matière */}
-                    <Td className="font-bold text-[#0c2340]">
-                      {item.subjectName}
-                    </Td>
-
-                    {/* Statut (automatiquement Justifiée si certificat fourni) */}
-                    <Td>
-                      {isJustified ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#d7f6ee] px-3 py-1 text-xs font-bold text-[#002b5b]">
-                          <span className="h-2 w-2 rounded-full bg-[#00875a]"></span>
-                          Justifiée
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#ffe4e6] px-3 py-1 text-xs font-bold text-[#9f1239]">
-                          <span className="h-2 w-2 rounded-full bg-[#be123c] animate-pulse"></span>
-                          Non justifiée
-                        </span>
-                      )}
-                    </Td>
-
-                    {/* Justification / Certificat */}
-                    <Td>
-                      {isJustified ? (
-                        <div className="flex flex-wrap items-center gap-2">
-                          <div className="inline-flex items-center gap-2 rounded-xl border border-[#8fe3cf]/70 bg-[#d7f6ee]/60 px-3 py-1.5 text-xs font-semibold text-[#002b5b]">
-                            <span>📄</span>
-                            <span>{item.reason || "Certificat médical validé"}</span>
-                            <span className="rounded-full bg-[#002b5b] px-1.5 py-0.2 text-[10px] font-bold text-[#8fe3cf]">
-                              ✓ Enregistré
-                            </span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div
-                          className="relative inline-block"
-                          data-dropdown-container
-                        >
-                          {/* UN SEUL BOUTON UNIQUE */}
+                  {/* Actions & Justification */}
+                  <div className="pt-1">
+                    {isApproved ? (
+                      <p className="text-xs font-semibold text-[#00875a] bg-[#d7f6ee]/60 rounded-xl px-3 py-2 border border-[#8fe3cf]/60">
+                        ✓ {item.reason || "Certificat médical validé par la scolarité"}
+                      </p>
+                    ) : isPendingVal ? (
+                      <p className="text-xs font-semibold text-[#b45309] bg-[#fffbeb] rounded-xl px-3 py-2 border border-[#fde68a]">
+                        ⏳ Justificatif transmis. En cours de vérification par la vie scolaire.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {isRejected && (
+                          <p className="text-xs font-semibold text-[#9d174d] bg-[#fce7f3] rounded-xl px-3 py-1.5 border border-[#fbcfe8]">
+                            ✕ Refusé : {item.rejectionReason || "Pièce non recevable"}
+                          </p>
+                        )}
+                        <div className="relative inline-block w-full" data-dropdown-container>
                           <button
                             type="button"
                             onClick={() =>
-                              setOpenDropdownId(
-                                openDropdownId === item.id ? null : item.id
-                              )
+                              setOpenDropdownId(openDropdownId === item.id ? null : item.id)
                             }
-                            className="inline-flex items-center gap-2 rounded-xl bg-[#002b5b] px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#001e42] hover:scale-[1.02] active:scale-[0.98]"
+                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#002b5b] px-4 py-2.5 text-xs font-bold text-white shadow-sm active:scale-95 transition"
                           >
                             <span>📎</span>
-                            <span>Justifier l'absence</span>
-                            <span className="text-[10px] text-[#8fe3cf]">
-                              {openDropdownId === item.id ? "▲" : "▼"}
-                            </span>
+                            <span>{isRejected ? "Déposer un nouveau justificatif" : "Justifier l'absence"}</span>
+                            <span>{openDropdownId === item.id ? "▲" : "▼"}</span>
                           </button>
 
-                          {/* Menu déroulant au clic : Caméra ou Fichier */}
                           {openDropdownId === item.id && (
-                            <div
-                              className={`absolute right-0 sm:left-0 z-40 w-64 rounded-2xl border border-[#c9d7ee] bg-white p-2 shadow-2xl animate-in fade-in zoom-in-95 ${
-                                isLast ? "bottom-full mb-1.5" : "top-full mt-1.5"
-                              }`}
-                            >
-                              <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#5a7199]">
-                                Options de justificatif
-                              </div>
-
-                              {/* Option 1: Caméra */}
+                            <div className="absolute left-0 right-0 z-40 mt-1.5 rounded-2xl border border-[#c9d7ee] bg-white p-2 shadow-2xl animate-in fade-in">
                               <button
                                 type="button"
                                 onClick={() => {
                                   setOpenDropdownId(null);
                                   handleOpenModal(item, "camera");
                                 }}
-                                className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left text-xs transition hover:bg-[#f0f4f9] group"
+                                className="flex w-full items-center gap-3 rounded-xl p-3 text-left text-xs transition hover:bg-[#f0f4f9]"
                               >
-                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#002b5b] text-base text-white group-hover:scale-105 transition shadow-sm">
+                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#002b5b] text-base text-white">
                                   📷
                                 </span>
                                 <div>
-                                  <div className="font-bold text-[#0c2340]">
-                                    Prendre une photo
-                                  </div>
-                                  <div className="text-[11px] text-[#5a7199]">
-                                    Avec la caméra / webcam
-                                  </div>
+                                  <div className="font-bold text-[#0c2340]">Prendre une photo</div>
+                                  <div className="text-[11px] text-[#5a7199]">Avec la caméra / smartphone</div>
                                 </div>
                               </button>
 
-                              {/* Option 2: Fichier à uploader */}
                               <button
                                 type="button"
                                 onClick={() => {
                                   setOpenDropdownId(null);
                                   handleOpenModal(item, "file");
                                 }}
-                                className="mt-1 flex w-full items-center gap-3 rounded-xl p-2.5 text-left text-xs transition hover:bg-[#f0f4f9] group"
+                                className="mt-1 flex w-full items-center gap-3 rounded-xl p-3 text-left text-xs transition hover:bg-[#f0f4f9]"
                               >
-                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#d7f6ee] text-base text-[#002b5b] group-hover:scale-105 transition shadow-sm">
+                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#8fe3cf] text-base text-[#002b5b]">
                                   📁
                                 </span>
                                 <div>
-                                  <div className="font-bold text-[#0c2340]">
-                                    Importer un fichier
-                                  </div>
-                                  <div className="text-[11px] text-[#5a7199]">
-                                    Document PDF, PNG ou JPG
-                                  </div>
+                                  <div className="font-bold text-[#0c2340]">Importer un fichier</div>
+                                  <div className="text-[11px] text-[#5a7199]">PDF, PNG ou JPG</div>
                                 </div>
                               </button>
                             </div>
                           )}
                         </div>
-                      )}
-                    </Td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </Table>
-        )}
-      </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
-      {/* Modal interactif de dépôt de certificat (Caméra ou Fichier) */}
+          {/* 🖥️ VERSION DESKTOP : TABLEAU COMPLET (>= md) */}
+          <div className="hidden md:block pb-24">
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Date</Th>
+                  <Th>Heure</Th>
+                  <Th>Matière</Th>
+                  <Th>Statut</Th>
+                  <Th>Justification / Certificat</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {absences.map((item, index) => {
+                  const isApproved =
+                    item.justificationStatus === "JUSTIFIE_VALIDE" ||
+                    (item.justified && item.justificationStatus !== "EN_ATTENTE_VALIDATION");
+                  const isPendingVal = item.justificationStatus === "EN_ATTENTE_VALIDATION";
+                  const isRejected = item.justificationStatus === "JUSTIFIE_REFUSE";
+                  const timeDisplay = item.time || "08h00 - 10h00";
+                  const isLast = index === absences.length - 1 && absences.length > 2;
+
+                  return (
+                    <tr key={item.id} className="transition-colors hover:bg-[#f9fbfd]">
+                      <Td className="font-semibold text-[#0c2340] whitespace-nowrap">
+                        {formatDate(item.date)}
+                      </Td>
+                      <Td className="text-sm font-medium text-[#264c93] whitespace-nowrap">
+                        <span className="inline-block rounded-lg bg-[#e4ecf8] px-2.5 py-1 text-xs font-bold text-[#002b5b]">
+                          ⏱️ {timeDisplay}
+                        </span>
+                      </Td>
+                      <Td className="font-bold text-[#0c2340]">{item.subjectName}</Td>
+                      <Td>{renderStatusBadge(item.justificationStatus, item.justified)}</Td>
+                      <Td>
+                        {isApproved ? (
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#8fe3cf]/70 bg-[#d7f6ee]/60 px-3 py-1.5 text-xs font-semibold text-[#002b5b]">
+                              <span>📋</span>
+                              <span>{item.reason || "Certificat médical validé"}</span>
+                            </span>
+                            {item.hasFile && (
+                              <a
+                                href={`/api/s/${schoolId}/attendance/${item.id}/file`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 rounded-lg border border-[#c9d7ee] bg-white px-2 py-1 text-[11px] font-bold text-[#002b5b] hover:bg-[#f4f8fc]"
+                              >
+                                🔒 Pièce jointe
+                              </a>
+                            )}
+                          </div>
+                        ) : isPendingVal ? (
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-3 py-1.5 text-xs font-semibold text-[#92400e]">
+                              <span>⏳</span>
+                              <span>Transmis · En attente de validation</span>
+                            </span>
+                            {item.hasFile && (
+                              <a
+                                href={`/api/s/${schoolId}/attendance/${item.id}/file`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 rounded-lg border border-[#c9d7ee] bg-white px-2 py-1 text-[11px] font-bold text-[#002b5b] hover:bg-[#f4f8fc]"
+                              >
+                                🔒 Pièce jointe
+                              </a>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="relative inline-block" data-dropdown-container>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setOpenDropdownId(openDropdownId === item.id ? null : item.id)
+                              }
+                              className="inline-flex items-center gap-2 rounded-xl bg-[#002b5b] px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#001e42] hover:scale-[1.02] active:scale-[0.98]"
+                            >
+                              <span>📎</span>
+                              <span>{isRejected ? "Déposer nouveau justificatif" : "Justifier l'absence"}</span>
+                              <span className="text-[10px] text-[#8fe3cf]">
+                                {openDropdownId === item.id ? "▲" : "▼"}
+                              </span>
+                            </button>
+
+                            {openDropdownId === item.id && (
+                              <div
+                                className={`absolute right-0 sm:left-0 z-40 w-64 rounded-2xl border border-[#c9d7ee] bg-white p-2 shadow-2xl animate-in fade-in zoom-in-95 ${
+                                  isLast ? "bottom-full mb-1.5" : "top-full mt-1.5"
+                                }`}
+                              >
+                                <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#5a7199]">
+                                  Options de justificatif
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenDropdownId(null);
+                                    handleOpenModal(item, "camera");
+                                  }}
+                                  className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left text-xs transition hover:bg-[#f0f4f9] group"
+                                >
+                                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#002b5b] text-base text-white group-hover:scale-105 transition shadow-sm">
+                                    📷
+                                  </span>
+                                  <div>
+                                    <div className="font-bold text-[#0c2340]">Prendre une photo</div>
+                                    <div className="text-[11px] text-[#5a7199]">Avec la caméra / webcam</div>
+                                  </div>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenDropdownId(null);
+                                    handleOpenModal(item, "file");
+                                  }}
+                                  className="mt-1 flex w-full items-center gap-3 rounded-xl p-2.5 text-left text-xs transition hover:bg-[#f0f4f9] group"
+                                >
+                                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#d7f6ee] text-base text-[#002b5b] group-hover:scale-105 transition shadow-sm">
+                                    📁
+                                  </span>
+                                  <div>
+                                    <div className="font-bold text-[#0c2340]">Importer un fichier</div>
+                                    <div className="text-[11px] text-[#5a7199]">Document PDF, PNG ou JPG</div>
+                                  </div>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </Td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </Table>
+          </div>
+        </>
+      )}
+
+      {/* Modal interactif avec compression WebP automatique */}
       {selectedItem ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c2340]/60 p-4 backdrop-blur-sm animate-in fade-in">
           <div className="w-full max-w-lg rounded-2xl border border-[#c9d7ee] bg-white p-6 shadow-2xl animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
             <div className="flex items-start justify-between">
               <div>
                 <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#e4ecf8] px-2.5 py-1 text-xs font-bold text-[#002b5b]">
-                  📋 Justificatif d'absence
+                  🔒 Dépôt sécurisé de justificatif
                 </span>
                 <h3 className="mt-2 text-xl font-bold text-[#0c2340]">
                   Justifier votre absence
                 </h3>
                 <p className="mt-1 text-xs text-[#5a7199]">
-                  {selectedItem.subjectName} • {formatDate(selectedItem.date)} (
-                  {selectedItem.time || "08h00 - 10h00"})
+                  {selectedItem.subjectName} • {formatDate(selectedItem.date)} ({selectedItem.time || "08h00 - 10h00"})
                 </p>
               </div>
               <button
@@ -557,9 +716,7 @@ export function StudentAttendanceTable({
                     type="button"
                     onClick={() => {
                       setInputMode("camera");
-                      if (!capturedPhoto) {
-                        setIsCameraActive(true);
-                      }
+                      if (!capturedPhoto) setIsCameraActive(true);
                     }}
                     className={`flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition ${
                       inputMode === "camera"
@@ -589,10 +746,9 @@ export function StudentAttendanceTable({
                 </div>
               </div>
 
-              {/* Mode Caméra */}
+              {/* Mode Caméra avec compression WebP */}
               {inputMode === "camera" && (
                 <div className="space-y-3">
-                  {/* Photo capturée */}
                   {capturedPhoto ? (
                     <div className="overflow-hidden rounded-xl border-2 border-[#8fe3cf] bg-[#f4f8fc] p-3 text-center">
                       <div className="relative mx-auto max-h-56 overflow-hidden rounded-lg border border-[#c9d7ee] bg-black">
@@ -604,7 +760,7 @@ export function StudentAttendanceTable({
                       </div>
                       <div className="mt-2.5 flex items-center justify-between px-1">
                         <span className="flex items-center gap-1.5 text-xs font-bold text-[#00875a]">
-                          ✓ Photo capturée ({fileName})
+                          ✓ {fileCompressionInfo || "Photo optimisée en WebP"}
                         </span>
                         <button
                           type="button"
@@ -612,12 +768,11 @@ export function StudentAttendanceTable({
                           className="inline-flex items-center gap-1 rounded-lg border border-[#c9d7ee] bg-white px-2.5 py-1 text-xs font-semibold text-[#002b5b] hover:bg-[#f4f8fc]"
                         >
                           <span>🔄</span>
-                          <span>Reprendre la photo</span>
+                          <span>Reprendre</span>
                         </button>
                       </div>
                     </div>
                   ) : isCameraActive ? (
-                    /* Vue de la caméra en direct */
                     <div className="overflow-hidden rounded-xl border-2 border-[#002b5b] bg-black p-2 text-center shadow-inner">
                       <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-black">
                         <video
@@ -639,10 +794,11 @@ export function StudentAttendanceTable({
                         <button
                           type="button"
                           onClick={handleTakePhoto}
+                          disabled={isCompressing}
                           className="inline-flex items-center gap-2 rounded-xl bg-[#00875a] px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-[#00704a] active:scale-95 transition"
                         >
                           <span className="text-base">📸</span>
-                          <span>Prendre la photo maintenant</span>
+                          <span>{isCompressing ? "Compression WebP..." : "Prendre la photo"}</span>
                         </button>
                         <button
                           type="button"
@@ -654,14 +810,10 @@ export function StudentAttendanceTable({
                       </div>
                     </div>
                   ) : (
-                    /* Démarrer la caméra */
                     <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#8fe3cf] bg-[#f4f8fc] p-6 text-center">
                       <span className="text-4xl">📷</span>
                       <p className="mt-2 text-xs font-bold text-[#0c2340]">
                         Photographier votre certificat médical
-                      </p>
-                      <p className="mt-1 text-[11px] text-[#5a7199]">
-                        Utilisez la caméra de votre ordinateur, tablette ou smartphone
                       </p>
                       <button
                         type="button"
@@ -681,40 +833,34 @@ export function StudentAttendanceTable({
                 </div>
               )}
 
-              {/* Mode Fichier */}
+              {/* Mode Fichier avec compression WebP */}
               {inputMode === "file" && (
                 <div>
                   <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#8fe3cf] bg-[#f4f8fc] p-4 text-center transition hover:bg-[#eaf5f9]">
                     <input
                       type="file"
-                      name="certificateFile"
-                      id="certificateFile"
-                      accept=".pdf,.png,.jpg,.jpeg"
+                      id="fileInput"
+                      accept=".pdf,.png,.jpg,.jpeg,.webp"
                       capture="environment"
                       className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        setFileName(file ? file.name : null);
-                        setCapturedPhoto(null);
-                        setCapturedBlob(null);
-                      }}
+                      onChange={handleFileChange}
                     />
                     <label
-                      htmlFor="certificateFile"
-                      className="cursor-pointer flex flex-col items-center"
+                      htmlFor="fileInput"
+                      className="cursor-pointer flex flex-col items-center w-full"
                     >
-                      <span className="text-3xl">📄</span>
+                      <span className="text-3xl">📁</span>
                       <span className="mt-2 text-xs font-bold text-[#002b5b]">
-                        {fileName ? (
+                        {selectedFile ? (
                           <span className="text-[#00875a]">
-                            ✓ Fichier sélectionné : {fileName}
+                            ✓ {fileCompressionInfo || selectedFile.name}
                           </span>
                         ) : (
-                          "Cliquez pour choisir un document ou glissez-le ici"
+                          "Choisir un fichier ou prendre une photo"
                         )}
                       </span>
                       <span className="mt-1 text-[11px] text-[#5a7199]">
-                        Formats acceptés : PDF, PNG, JPG (max 10 Mo)
+                        Formats : PDF, PNG, JPG · Compression automatique en WebP (&lt;250 Ko)
                       </span>
                     </label>
                   </div>
@@ -736,6 +882,15 @@ export function StudentAttendanceTable({
                 />
               </div>
 
+              {/* Mention sécurité */}
+              <div className="rounded-xl bg-[#e4ecf8] p-3 text-[11px] text-[#1a3d6e] space-y-1">
+                <p className="font-bold">🛡️ Confidentialité Médicale & Audit Log :</p>
+                <p>
+                  Ce document est stocké de manière privée et chiffrée. Seuls vous-même et les
+                  responsables habilités de la scolarité peuvent y accéder. Tout accès est journalisé.
+                </p>
+              </div>
+
               {/* Boutons d'action */}
               <div className="mt-6 flex items-center justify-end gap-3 pt-4 border-t border-[#eef2f7]">
                 <button
@@ -748,16 +903,16 @@ export function StudentAttendanceTable({
                 </button>
                 <Button
                   type="submit"
-                  disabled={isPending || (inputMode === "camera" && isCameraActive && !capturedPhoto)}
+                  disabled={isPending || isCompressing || (inputMode === "camera" && isCameraActive && !capturedPhoto)}
                   className="bg-[#002b5b] text-white hover:bg-[#001e42] px-5 py-2 text-xs font-bold shadow-sm"
                 >
                   {isPending ? (
                     <span className="flex items-center gap-2">
                       <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      Validation en cours...
+                      Transmission sécurisée...
                     </span>
                   ) : (
-                    "Valider et justifier l'absence"
+                    "Transmettre à la scolarité"
                   )}
                 </Button>
               </div>

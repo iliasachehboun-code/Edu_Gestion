@@ -145,11 +145,27 @@ export default async function StudentDashboardPage({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Link href={`/s/${schoolId}/student/documents`}>
+            <Button
+              variant="secondary"
+              className="bg-white/10 text-white border-white/20 hover:bg-white/20 text-xs font-semibold"
+            >
+              📜 Documents PDF
+            </Button>
+          </Link>
+          <Link href={`/s/${schoolId}/student/requests`}>
+            <Button
+              variant="secondary"
+              className="bg-white/10 text-white border-white/20 hover:bg-white/20 text-xs font-semibold"
+            >
+              🏛️ Demandes en ligne
+            </Button>
+          </Link>
           <Link href={`/s/${schoolId}/student/schedule`}>
             <Button
               variant="secondary"
-              className="bg-white/10 text-white border-white/20 hover:bg-white/20"
+              className="bg-white/10 text-white border-white/20 hover:bg-white/20 text-xs font-semibold"
             >
               📅 Mon planning
             </Button>
@@ -157,7 +173,7 @@ export default async function StudentDashboardPage({
           <Link href={`/s/${schoolId}/student/grades`}>
             <Button
               variant="secondary"
-              className="bg-[#8fe3cf] text-[#002b5b] border-transparent hover:bg-[#7ed1be]"
+              className="bg-[#8fe3cf] text-[#002b5b] border-transparent hover:bg-[#7ed1be] text-xs font-bold"
             >
               📊 Mes notes
             </Button>
