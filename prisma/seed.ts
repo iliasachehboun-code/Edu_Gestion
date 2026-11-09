@@ -509,32 +509,46 @@ async function main() {
     });
   }
 
+  await prisma.scheduleEntry.deleteMany({ where: { schoolId: school.id } });
   const grid: [string, number, number, string, string][] = [
+    // 6ème A (Classe de Lucas Bernard) - Emploi du temps complet de toute la semaine
+    // Lundi (Jour 1)
     ["6ème A", 1, 1, "Mathématiques", "Salle 12"],
-    ["6ème A", 1, 2, "Français", "Salle 12"],
+    ["6ème A", 1, 2, "Mathématiques", "Salle 12"],
+    ["6ème A", 1, 3, "Français", "Salle 12"],
+    ["6ème A", 1, 4, "Histoire-Géo", "Salle 14"],
+    ["6ème A", 1, 5, "SVT", "Labo SVT"],
+    ["6ème A", 1, 6, "Anglais", "Salle 14"],
+
+    // Mardi (Jour 2)
     ["6ème A", 2, 1, "Anglais", "Salle 14"],
     ["6ème A", 2, 2, "Histoire-Géo", "Salle 14"],
-    ["6ème A", 3, 1, "SVT", "Labo SVT"],
-    ["6ème A", 3, 2, "Physique-Chimie", "Labo SVT"],
+    ["6ème A", 2, 3, "Français", "Salle 12"],
+    ["6ème A", 2, 4, "Français", "Salle 12"],
+    ["6ème A", 2, 5, "Physique-Chimie", "Labo SVT"],
+    ["6ème A", 2, 6, "Mathématiques", "Salle 12"],
+
+    // Mercredi (Jour 3 - matinée)
+    ["6ème A", 3, 1, "Mathématiques", "Salle 12"],
+    ["6ème A", 3, 2, "Français", "Salle 12"],
+    ["6ème A", 3, 3, "SVT", "Labo SVT"],
+    ["6ème A", 3, 4, "Anglais", "Salle 14"],
+
+    // Jeudi (Jour 4)
     ["6ème A", 4, 1, "EPS", "Gymnase"],
-    ["6ème A", 4, 2, "Mathématiques", "Salle 12"],
+    ["6ème A", 4, 2, "EPS", "Gymnase"],
+    ["6ème A", 4, 3, "Physique-Chimie", "Labo SVT"],
+    ["6ème A", 4, 4, "Mathématiques", "Salle 12"],
+    ["6ème A", 4, 5, "Histoire-Géo", "Salle 14"],
+    ["6ème A", 4, 6, "Français", "Salle 12"],
+
+    // Vendredi (Jour 5)
     ["6ème A", 5, 1, "Français", "Salle 12"],
     ["6ème A", 5, 2, "Anglais", "Salle 14"],
-    ["5ème A", 1, 3, "Mathématiques", "Salle 14"],
-    ["5ème A", 1, 4, "Français", "Salle 14"],
-    ["5ème A", 2, 3, "Anglais", "Salle 12"],
-    ["5ème A", 2, 4, "Histoire-Géo", "Salle 12"],
-    ["5ème A", 3, 3, "SVT", "Labo SVT"],
-    ["5ème A", 3, 4, "Physique-Chimie", "Labo SVT"],
-    ["5ème A", 4, 3, "EPS", "Gymnase"],
-    ["5ème A", 4, 5, "Mathématiques", "Salle 14"],
-    ["5ème A", 5, 3, "Français", "Salle 12"],
-    ["5ème A", 5, 4, "Anglais", "Salle 12"],
-    ["6ème B", 1, 5, "Mathématiques", "Salle 12"],
-    ["6ème B", 2, 5, "Français", "Salle 12"],
-    ["6ème B", 3, 5, "Anglais", "Salle 14"],
-    ["6ème B", 4, 6, "Histoire-Géo", "Salle 14"],
-    ["6ème B", 5, 5, "EPS", "Gymnase"],
+    ["6ème A", 5, 3, "Histoire-Géo", "Salle 14"],
+    ["6ème A", 5, 4, "Mathématiques", "Salle 12"],
+    ["6ème A", 5, 5, "Physique-Chimie", "Labo SVT"],
+    ["6ème A", 5, 6, "SVT", "Labo SVT"],
   ];
   for (const [className, day, order, subjectName, room] of grid) {
     const slot = slotByOrder.get(order);
