@@ -61,10 +61,12 @@ async function main() {
   });
 
   const termSpecs = [
-    { name: "Trimestre 1", order: 1, start: "2025-09-01", end: "2025-12-20" },
-    { name: "Trimestre 2", order: 2, start: "2026-01-05", end: "2026-03-28" },
-    { name: "Trimestre 3", order: 3, start: "2026-04-07", end: "2026-06-30" },
+    { name: "Semestre 1", order: 1, start: "2025-09-01", end: "2026-01-31" },
+    { name: "Semestre 2", order: 2, start: "2026-02-01", end: "2026-06-30" },
   ];
+  await prisma.term.deleteMany({
+    where: { academicYearId: year.id, order: { gt: 2 } },
+  });
   for (const t of termSpecs) {
     const existing = await prisma.term.findFirst({
       where: { academicYearId: year.id, order: t.order },
@@ -78,6 +80,11 @@ async function main() {
           startDate: new Date(t.start),
           endDate: new Date(t.end),
         },
+      });
+    } else {
+      await prisma.term.update({
+        where: { id: existing.id },
+        data: { name: t.name, startDate: new Date(t.start), endDate: new Date(t.end) },
       });
     }
   }
@@ -412,28 +419,44 @@ async function main() {
     maxScore: number;
     coefficient: number;
   }[] = [];
+  await prisma.grade.deleteMany({ where: { schoolId: school.id } });
   createdStudents.forEach((student, index) => {
     gradedSubjects.forEach((subjectName, subjectIndex) => {
-      const control = 8 + ((index + subjectIndex * 3) % 12);
+      const base = 11 + ((index + subjectIndex * 3) % 7);
+      const cc1 = Math.min(20, Math.max(6, base + ((subjectIndex + 1) % 3) - 1));
+      const cc2 = Math.min(20, Math.max(6, base + ((subjectIndex + 2) % 4) - 2));
+      const cc3 = Math.min(20, Math.max(6, base + (subjectIndex % 3)));
+
       gradeRows.push({
         schoolId: school.id,
         studentId: student.id,
         subjectId: subjects[subjectName].id,
         termId: term1.id,
-        type: subjectIndex % 2 === 0 ? "CONTROLE" : "EXAMEN",
-        title: "Contrôle 1",
-        score: control,
+        type: "CONTROLE",
+        title: "Contrôle Continu 1",
+        score: cc1,
         maxScore: 20,
-        coefficient: 2,
+        coefficient: 1,
       });
       gradeRows.push({
         schoolId: school.id,
         studentId: student.id,
         subjectId: subjects[subjectName].id,
         termId: term1.id,
-        type: "DEVOIR",
-        title: "Devoir maison",
-        score: Math.min(20, control + 1),
+        type: "CONTROLE",
+        title: "Contrôle Continu 2",
+        score: cc2,
+        maxScore: 20,
+        coefficient: 1,
+      });
+      gradeRows.push({
+        schoolId: school.id,
+        studentId: student.id,
+        subjectId: subjects[subjectName].id,
+        termId: term1.id,
+        type: "CONTROLE",
+        title: "Contrôle Continu 3",
+        score: cc3,
         maxScore: 20,
         coefficient: 1,
       });
@@ -529,30 +552,45 @@ async function main() {
     });
   }
 
+  await prisma.attendance.deleteMany({ where: { schoolId: school.id } });
+  const subjectKeys = Object.keys(subjects);
+  const timeSlotOptions = ["08h00 - 10h00", "10h15 - 12h15", "14h00 - 15h00", "15h00 - 17h00"];
   const absenceDates = [
-    new Date("2026-11-02T12:00:00"),
-    new Date("2026-11-03T12:00:00"),
-    new Date("2026-11-04T12:00:00"),
+    new Date("2025-10-14"),
+    new Date("2025-10-28"),
+    new Date("2025-11-05"),
+    new Date("2025-11-17"),
+    new Date("2025-12-02"),
   ];
-  await prisma.attendance.createMany({
-    data: createdStudents.slice(0, 36).map((student, i) => {
-      const status = i % 3 === 0 ? "ABSENT" : i % 3 === 1 ? "LATE" : "EXCUSED";
-      return {
+
+  const attendanceData = createdStudents.slice(0, 36).flatMap((student, i) => {
+    return [
+      {
         schoolId: school.id,
         studentId: student.id,
         classId: student.classId,
+        subjectId: subjects[subjectKeys[i % subjectKeys.length]].id,
+        time: timeSlotOptions[i % timeSlotOptions.length],
         date: absenceDates[i % absenceDates.length],
-        status: status as "ABSENT" | "LATE" | "EXCUSED",
-        reason:
-          status === "ABSENT"
-            ? "Maladie"
-            : status === "LATE"
-              ? "Transport"
-              : "Rendez-vous médical",
-        justified: status === "EXCUSED",
-      };
-    }),
+        status: "ABSENT" as const,
+        reason: i % 2 === 0 ? "Maladie / certificat médical" : "Absence injustifiée",
+        justified: i % 2 === 0,
+      },
+      {
+        schoolId: school.id,
+        studentId: student.id,
+        classId: student.classId,
+        subjectId: subjects[subjectKeys[(i + 2) % subjectKeys.length]].id,
+        time: timeSlotOptions[(i + 1) % timeSlotOptions.length],
+        date: absenceDates[(i + 2) % absenceDates.length],
+        status: "ABSENT" as const,
+        reason: i % 3 === 0 ? "Rendez-vous médical" : "Motif personnel",
+        justified: i % 3 === 0,
+      },
+    ];
   });
+
+  await prisma.attendance.createMany({ data: attendanceData });
 
   const tuition = await prisma.feeType.create({
     data: {

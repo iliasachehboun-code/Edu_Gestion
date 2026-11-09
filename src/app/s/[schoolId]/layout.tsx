@@ -38,8 +38,7 @@ export default async function SchoolLayout({
       { href: `${base}/student`, label: "Tableau de bord" },
       { href: `${base}/student/schedule`, label: "Emploi du temps" },
       { href: `${base}/student/grades`, label: "Notes & Bulletins" },
-      { href: `${base}/student/homework`, label: "Devoirs & Évaluations" },
-      { href: `${base}/student/attendance`, label: "Absences & Retards" },
+      { href: `${base}/student/attendance`, label: "Mes Absences" },
       {
         href: `${base}/student/notifications`,
         label: unread ? `Notifications (${unread})` : "Notifications",

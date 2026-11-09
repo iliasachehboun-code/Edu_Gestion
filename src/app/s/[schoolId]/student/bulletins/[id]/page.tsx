@@ -70,7 +70,7 @@ export default async function StudentBulletinDetailPage({
             {school.name}
           </h1>
           <p className="mt-1 text-sm font-medium uppercase tracking-widest text-[#3d5278]">
-            Bulletin trimestriel de notes
+            Bulletin semestriel de notes
           </p>
           <p className="mt-2 text-sm text-[#5a7199]">
             {card.term.name} · Année scolaire {card.academicYear.name}

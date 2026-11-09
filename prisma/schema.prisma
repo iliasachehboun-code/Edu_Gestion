@@ -188,6 +188,7 @@ model Subject {
   grades             Grade[]
   scheduleEntries    ScheduleEntry[]
   reportCardLines    ReportCardLine[]
+  attendances        Attendance[]
 
   @@unique([schoolId, name])
 }
@@ -413,6 +414,8 @@ model Attendance {
   studentId  String
   classId    String
   teacherId  String?
+  subjectId  String?
+  time       String?
   date       DateTime
   status     AttendanceStatus @default(PRESENT)
   reason     String?
@@ -423,6 +426,7 @@ model Attendance {
   student Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   class   Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
   teacher Teacher? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  subject Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
 
   @@unique([studentId, date, classId])
   @@index([schoolId, studentId])
