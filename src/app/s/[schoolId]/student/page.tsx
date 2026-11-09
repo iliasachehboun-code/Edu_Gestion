@@ -89,6 +89,34 @@ export default async function StudentDashboardPage({
   const todayLabel = DAYS.find((d) => d.value === dayKey)?.label ?? "Lundi";
   const todayClasses = scheduleEntries.filter((e) => e.dayOfWeek === dayKey);
 
+  // Détermination du cours suivant
+  const now = new Date();
+  const currentHour = now.getHours();
+  const currentMinutes = now.getMinutes();
+  const currentTimeStr = `${String(currentHour).padStart(2, "0")}:${String(currentMinutes).padStart(2, "0")}`;
+
+  // 1. Chercher le cours à venir aujourd'hui (dont l'heure de fin n'est pas encore dépassée)
+  let nextClass = todayClasses.find((c) => c.timeSlot.endTime >= currentTimeStr);
+  let nextDayBadge = "Aujourd'hui";
+
+  // 2. Si tous les cours du jour sont terminés ou pas de cours aujourd'hui : chercher le premier cours du prochain jour d'école
+  if (!nextClass && scheduleEntries.length > 0) {
+    for (let offset = 1; offset <= 7; offset++) {
+      const checkDay = ((dayKey - 1 + offset) % 7) + 1;
+      const candidates = scheduleEntries.filter((e) => e.dayOfWeek === checkDay);
+      if (candidates.length > 0) {
+        nextClass = candidates[0];
+        nextDayBadge = offset === 1 ? "Demain" : DAYS.find((d) => d.value === checkDay)?.label ?? "";
+        break;
+      }
+    }
+  }
+
+  // Fallback si nécessaire
+  if (!nextClass && todayClasses.length > 0) {
+    nextClass = todayClasses[0];
+  }
+
   const recentGrades = grades.slice(0, 6);
 
   return (
@@ -148,18 +176,49 @@ export default async function StudentDashboardPage({
           </span>
         </Card>
 
+        {/* Carte Cours Suivant */}
         <Card className="flex flex-col justify-between border-l-4 border-l-[#8fe3cf]">
-          <span className="text-xs font-semibold uppercase tracking-wider text-[#3d5278]">
-            Cours aujourd&apos;hui
-          </span>
-          <div className="mt-2">
-            <span className="text-3xl font-bold text-[#0c2340]">
-              {todayClasses.length}
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#3d5278]">
+              Cours suivant
             </span>
+            {nextClass ? (
+              <span className="rounded-full bg-[#8fe3cf] px-2 py-0.5 text-[10px] font-bold text-[#002b5b]">
+                {nextDayBadge}
+              </span>
+            ) : null}
           </div>
-          <span className="mt-2 text-xs text-[#5a7199]">
-            {todayLabel} ({todayClasses.length > 0 ? "En session" : "Aucun cours"})
-          </span>
+
+          {nextClass ? (
+            <div className="my-1.5">
+              <div className="text-xl font-extrabold text-[#002b5b] leading-tight truncate">
+                {nextClass.subject.name}
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[#3d5278]">
+                <span className="font-bold text-[#264c93]">
+                  ⏱️ {nextClass.timeSlot.startTime} - {nextClass.timeSlot.endTime}
+                </span>
+                {nextClass.room ? (
+                  <span className="rounded bg-[#f0f4fa] px-1.5 py-0.5 text-[11px] font-medium text-[#0c2340]">
+                    📍 {nextClass.room.name}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <div className="my-1.5">
+              <span className="text-lg font-bold text-[#0c2340]">Aucun cours</span>
+              <p className="text-xs text-[#5a7199]">Pas de cours programmé</p>
+            </div>
+          )}
+
+          <div className="text-xs text-[#5a7199] truncate">
+            {nextClass ? (
+              <>Prof. {fullName(nextClass.teacher.firstName, nextClass.teacher.lastName)}</>
+            ) : (
+              <>{todayClasses.length} cours au total</>
+            )}
+          </div>
         </Card>
 
         <Card className="flex flex-col justify-between border-l-4 border-l-[#be123c]">
