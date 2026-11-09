@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useRef, useEffect, useTransition } from "react";
 import { Badge, Button, Card, Table, Td, Th } from "@/components/ui";
 import { justifyAttendanceAction } from "@/app/actions/attendance";
 import { formatDate } from "@/lib/utils";
@@ -32,20 +32,123 @@ export function StudentAttendanceTable({
   const [comment, setComment] = useState("");
   const [fileName, setFileName] = useState<string | null>(null);
 
+  // Camera states
+  const [inputMode, setInputMode] = useState<"file" | "camera">("file");
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
+  const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
   const justifiedCount = absences.filter((a) => a.justified || a.status === "EXCUSED").length;
   const unjustifiedCount = absences.length - justifiedCount;
 
-  const handleOpenModal = (item: AttendanceRowItem) => {
+  // Cleanup camera stream
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    setIsCameraActive(false);
+  };
+
+  // Manage camera stream lifecycle
+  useEffect(() => {
+    if (isCameraActive) {
+      let activeStream: MediaStream | null = null;
+      navigator.mediaDevices
+        ?.getUserMedia({
+          video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+          audio: false,
+        })
+        .then((stream) => {
+          activeStream = stream;
+          streamRef.current = stream;
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            videoRef.current.play().catch(() => {});
+          }
+        })
+        .catch((err) => {
+          console.error("Camera access error:", err);
+          setCameraError(
+            "Impossible d'accéder à la caméra. Vérifiez les autorisations de votre navigateur ou utilisez l'import de fichier."
+          );
+          setIsCameraActive(false);
+        });
+
+      return () => {
+        if (activeStream) {
+          activeStream.getTracks().forEach((track) => track.stop());
+        }
+      };
+    }
+  }, [isCameraActive]);
+
+  const handleOpenModal = (item: AttendanceRowItem, mode: "file" | "camera" = "file") => {
     setSelectedItem(item);
     setReasonType("Certificat médical");
     setComment("");
     setFileName(null);
+    setCapturedPhoto(null);
+    setCapturedBlob(null);
+    setCameraError(null);
+    setInputMode(mode);
+
+    if (mode === "camera") {
+      setIsCameraActive(true);
+    } else {
+      setIsCameraActive(false);
+    }
   };
 
   const handleCloseModal = () => {
     if (!isPending) {
+      stopCamera();
       setSelectedItem(null);
     }
+  };
+
+  const handleTakePhoto = () => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+      setCapturedPhoto(dataUrl);
+
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            setCapturedBlob(blob);
+            const generatedName = `photo_certificat_${Date.now().toString().slice(-4)}.jpg`;
+            setFileName(generatedName);
+          }
+        },
+        "image/jpeg",
+        0.9
+      );
+    }
+
+    stopCamera();
+  };
+
+  const handleRetakePhoto = () => {
+    setCapturedPhoto(null);
+    setCapturedBlob(null);
+    setFileName(null);
+    setIsCameraActive(true);
   };
 
   const handleQuickJustify = (item: AttendanceRowItem) => {
@@ -84,6 +187,16 @@ export function StudentAttendanceTable({
 
     const formData = new FormData(e.currentTarget);
 
+    // Si une photo a été prise via la caméra, on l'ajoute au formData
+    if (capturedBlob) {
+      const photoFile = new File(
+        [capturedBlob],
+        fileName || "photo_certificat.jpg",
+        { type: "image/jpeg" }
+      );
+      formData.set("certificateFile", photoFile);
+    }
+
     startTransition(async () => {
       try {
         await justifyAttendanceAction(schoolId, selectedItem.id, formData);
@@ -109,6 +222,7 @@ export function StudentAttendanceTable({
             selectedItem.date
           )} est maintenant justifiée !`
         );
+        stopCamera();
         setSelectedItem(null);
         setTimeout(() => setNotification(null), 6000);
       } catch (err) {
@@ -166,7 +280,7 @@ export function StudentAttendanceTable({
           </div>
           <p className="mt-2 text-xs text-[#5a7199]">
             {unjustifiedCount > 0
-              ? "Déposez vos certificats ci-dessous"
+              ? "Déposez vos certificats ou prenez-les en photo"
               : "Toutes vos absences sont régularisées"}
           </p>
         </Card>
@@ -182,7 +296,7 @@ export function StudentAttendanceTable({
             <span className="text-sm font-medium text-[#3d5278]">validées</span>
           </div>
           <p className="mt-2 text-xs text-[#5a7199]">
-            Certificats médicaux & motifs acceptés
+            Certificats médicaux & photos validés
           </p>
         </Card>
       </div>
@@ -269,14 +383,25 @@ export function StudentAttendanceTable({
                         </div>
                       ) : (
                         <div className="flex flex-wrap items-center gap-2">
-                          {/* Bouton pour ouvrir le formulaire de certificat */}
+                          {/* Bouton pour ouvrir la caméra directement */}
                           <button
                             type="button"
-                            onClick={() => handleOpenModal(item)}
+                            onClick={() => handleOpenModal(item, "camera")}
                             className="inline-flex items-center gap-1.5 rounded-xl bg-[#002b5b] px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#001e42] hover:scale-[1.02] active:scale-[0.98]"
+                            title="Prendre votre certificat en photo avec la caméra"
+                          >
+                            <span>📷</span>
+                            <span>Photo caméra</span>
+                          </button>
+
+                          {/* Bouton pour importer un fichier */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenModal(item, "file")}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-[#8fe3cf] bg-white px-3 py-1.5 text-xs font-bold text-[#002b5b] shadow-sm transition hover:bg-[#e5f8f3] hover:scale-[1.02] active:scale-[0.98]"
                           >
                             <span>📎</span>
-                            <span>Déposer un certificat</span>
+                            <span>Fichier</span>
                           </button>
 
                           {/* Action 1-clic rapide */}
@@ -284,11 +409,11 @@ export function StudentAttendanceTable({
                             type="button"
                             disabled={isPending}
                             onClick={() => handleQuickJustify(item)}
-                            className="inline-flex items-center gap-1 rounded-xl border border-[#8fe3cf] bg-white px-2.5 py-1.5 text-xs font-medium text-[#002b5b] transition hover:bg-[#e5f8f3] disabled:opacity-50"
+                            className="inline-flex items-center gap-1 rounded-xl border border-[#c9d7ee] bg-white px-2.5 py-1.5 text-xs font-medium text-[#3d5278] transition hover:bg-[#f4f8fc] disabled:opacity-50"
                             title="Régulariser immédiatement avec Certificat Médical"
                           >
                             <span>🩺</span>
-                            <span>Certificat médical</span>
+                            <span>1-clic</span>
                           </button>
                         </div>
                       )}
@@ -301,17 +426,17 @@ export function StudentAttendanceTable({
         )}
       </div>
 
-      {/* Modal interactif de dépôt de certificat */}
+      {/* Modal interactif de dépôt de certificat (Caméra ou Fichier) */}
       {selectedItem ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0c2340]/60 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-lg rounded-2xl border border-[#c9d7ee] bg-white p-6 shadow-2xl animate-in zoom-in-95">
+          <div className="w-full max-w-lg rounded-2xl border border-[#c9d7ee] bg-white p-6 shadow-2xl animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
             <div className="flex items-start justify-between">
               <div>
                 <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#e4ecf8] px-2.5 py-1 text-xs font-bold text-[#002b5b]">
                   📋 Justificatif d'absence
                 </span>
                 <h3 className="mt-2 text-xl font-bold text-[#0c2340]">
-                  Déposer un certificat
+                  Justifier votre absence
                 </h3>
                 <p className="mt-1 text-xs text-[#5a7199]">
                   {selectedItem.subjectName} • {formatDate(selectedItem.date)} (
@@ -362,43 +487,179 @@ export function StudentAttendanceTable({
                 </select>
               </div>
 
-              {/* Fichier certificat (PDF / image) */}
+              {/* Sélecteur de mode : Caméra ou Fichier */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#3d5278]">
-                  Joindre votre certificat (PDF, JPG, PNG)
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#3d5278] mb-1.5">
+                  Preuve justificative (Photo ou Document)
                 </label>
-                <div className="mt-1.5 flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#8fe3cf] bg-[#f4f8fc] p-4 text-center transition hover:bg-[#eaf5f9]">
-                  <input
-                    type="file"
-                    name="certificateFile"
-                    id="certificateFile"
-                    accept=".pdf,.png,.jpg,.jpeg"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      setFileName(file ? file.name : null);
+                <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-[#f0f4f9] border border-[#c9d7ee]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInputMode("camera");
+                      if (!capturedPhoto) {
+                        setIsCameraActive(true);
+                      }
                     }}
-                  />
-                  <label
-                    htmlFor="certificateFile"
-                    className="cursor-pointer flex flex-col items-center"
+                    className={`flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition ${
+                      inputMode === "camera"
+                        ? "bg-[#002b5b] text-white shadow-sm"
+                        : "text-[#3d5278] hover:text-[#002b5b]"
+                    }`}
                   >
-                    <span className="text-3xl">📄</span>
-                    <span className="mt-2 text-xs font-bold text-[#002b5b]">
-                      {fileName ? (
-                        <span className="text-[#00875a]">
-                          ✓ Fichier sélectionné : {fileName}
-                        </span>
-                      ) : (
-                        "Cliquez pour choisir un document ou glissez-le ici"
-                      )}
-                    </span>
-                    <span className="mt-1 text-[11px] text-[#5a7199]">
-                      Formats acceptés : PDF, PNG, JPG (max 10 Mo)
-                    </span>
-                  </label>
+                    <span>📷</span>
+                    <span>Prendre une photo</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInputMode("file");
+                      stopCamera();
+                    }}
+                    className={`flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition ${
+                      inputMode === "file"
+                        ? "bg-[#002b5b] text-white shadow-sm"
+                        : "text-[#3d5278] hover:text-[#002b5b]"
+                    }`}
+                  >
+                    <span>📁</span>
+                    <span>Importer un fichier</span>
+                  </button>
                 </div>
               </div>
+
+              {/* Mode Caméra */}
+              {inputMode === "camera" && (
+                <div className="space-y-3">
+                  {/* Photo capturée */}
+                  {capturedPhoto ? (
+                    <div className="overflow-hidden rounded-xl border-2 border-[#8fe3cf] bg-[#f4f8fc] p-3 text-center">
+                      <div className="relative mx-auto max-h-56 overflow-hidden rounded-lg border border-[#c9d7ee] bg-black">
+                        <img
+                          src={capturedPhoto}
+                          alt="Certificat capturé"
+                          className="h-56 w-full object-contain"
+                        />
+                      </div>
+                      <div className="mt-2.5 flex items-center justify-between px-1">
+                        <span className="flex items-center gap-1.5 text-xs font-bold text-[#00875a]">
+                          ✓ Photo capturée ({fileName})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleRetakePhoto}
+                          className="inline-flex items-center gap-1 rounded-lg border border-[#c9d7ee] bg-white px-2.5 py-1 text-xs font-semibold text-[#002b5b] hover:bg-[#f4f8fc]"
+                        >
+                          <span>🔄</span>
+                          <span>Reprendre la photo</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : isCameraActive ? (
+                    /* Vue de la caméra en direct */
+                    <div className="overflow-hidden rounded-xl border-2 border-[#002b5b] bg-black p-2 text-center shadow-inner">
+                      <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-black">
+                        <video
+                          ref={videoRef}
+                          autoPlay
+                          playsInline
+                          muted
+                          className="h-full w-full object-cover"
+                        />
+                        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                          <div className="h-4/5 w-4/5 rounded-lg border-2 border-dashed border-white/60"></div>
+                        </div>
+                        <span className="absolute bottom-2 left-2 rounded-md bg-black/70 px-2 py-0.5 text-[10px] font-semibold text-white">
+                          Cadrez votre certificat médical
+                        </span>
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-center gap-3">
+                        <button
+                          type="button"
+                          onClick={handleTakePhoto}
+                          className="inline-flex items-center gap-2 rounded-xl bg-[#00875a] px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-[#00704a] active:scale-95 transition"
+                        >
+                          <span className="text-base">📸</span>
+                          <span>Prendre la photo maintenant</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={stopCamera}
+                          className="rounded-xl border border-white/30 px-3 py-2 text-xs font-semibold text-white/80 hover:bg-white/10"
+                        >
+                          Annuler
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Démarrer la caméra */
+                    <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#8fe3cf] bg-[#f4f8fc] p-6 text-center">
+                      <span className="text-4xl">📷</span>
+                      <p className="mt-2 text-xs font-bold text-[#0c2340]">
+                        Photographier votre certificat médical
+                      </p>
+                      <p className="mt-1 text-[11px] text-[#5a7199]">
+                        Utilisez la caméra de votre ordinateur, tablette ou smartphone
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setIsCameraActive(true)}
+                        className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#002b5b] px-4 py-2 text-xs font-bold text-white hover:bg-[#001e42] transition"
+                      >
+                        <span>📹</span>
+                        <span>Activer la caméra</span>
+                      </button>
+                      {cameraError ? (
+                        <p className="mt-2 text-xs font-semibold text-[#be123c]">
+                          {cameraError}
+                        </p>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Mode Fichier */}
+              {inputMode === "file" && (
+                <div>
+                  <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#8fe3cf] bg-[#f4f8fc] p-4 text-center transition hover:bg-[#eaf5f9]">
+                    <input
+                      type="file"
+                      name="certificateFile"
+                      id="certificateFile"
+                      accept=".pdf,.png,.jpg,.jpeg"
+                      capture="environment"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        setFileName(file ? file.name : null);
+                        setCapturedPhoto(null);
+                        setCapturedBlob(null);
+                      }}
+                    />
+                    <label
+                      htmlFor="certificateFile"
+                      className="cursor-pointer flex flex-col items-center"
+                    >
+                      <span className="text-3xl">📄</span>
+                      <span className="mt-2 text-xs font-bold text-[#002b5b]">
+                        {fileName ? (
+                          <span className="text-[#00875a]">
+                            ✓ Fichier sélectionné : {fileName}
+                          </span>
+                        ) : (
+                          "Cliquez pour choisir un document ou glissez-le ici"
+                        )}
+                      </span>
+                      <span className="mt-1 text-[11px] text-[#5a7199]">
+                        Formats acceptés : PDF, PNG, JPG (max 10 Mo)
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              )}
 
               {/* Précisions / Médecin */}
               <div>
@@ -410,7 +671,7 @@ export function StudentAttendanceTable({
                   name="comment"
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
-                  placeholder="Ex: Dr. Martin, dispense de cours..."
+                  placeholder="Ex: Dr. Martin, repos médical 48h..."
                   className="mt-1.5 w-full rounded-xl border border-[#b7c9e6] bg-white px-3 py-2 text-sm text-[#0c2340] outline-none focus:border-[#264c93] focus:ring-2 focus:ring-[#8fe3cf]"
                 />
               </div>
@@ -427,7 +688,7 @@ export function StudentAttendanceTable({
                 </button>
                 <Button
                   type="submit"
-                  disabled={isPending}
+                  disabled={isPending || (inputMode === "camera" && isCameraActive && !capturedPhoto)}
                   className="bg-[#002b5b] text-white hover:bg-[#001e42] px-5 py-2 text-xs font-bold shadow-sm"
                 >
                   {isPending ? (
