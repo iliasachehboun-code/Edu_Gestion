@@ -38,9 +38,24 @@ export function StudentAttendanceTable({
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+
+  // Fermer le menu déroulant au clic à l'extérieur
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (openDropdownId) {
+        const target = e.target as HTMLElement;
+        if (!target.closest("[data-dropdown-container]")) {
+          setOpenDropdownId(null);
+        }
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openDropdownId]);
 
   const justifiedCount = absences.filter((a) => a.justified || a.status === "EXCUSED").length;
   const unjustifiedCount = absences.length - justifiedCount;
@@ -328,9 +343,10 @@ export function StudentAttendanceTable({
               </tr>
             </thead>
             <tbody>
-              {absences.map((item) => {
+              {absences.map((item, index) => {
                 const isJustified = item.justified || item.status === "EXCUSED";
                 const timeDisplay = item.time || "08h00 - 10h00";
+                const isLast = index === absences.length - 1 && absences.length > 2;
 
                 return (
                   <tr
@@ -382,39 +398,83 @@ export function StudentAttendanceTable({
                           </div>
                         </div>
                       ) : (
-                        <div className="flex flex-wrap items-center gap-2">
-                          {/* Bouton pour ouvrir la caméra directement */}
+                        <div
+                          className="relative inline-block"
+                          data-dropdown-container
+                        >
+                          {/* UN SEUL BOUTON UNIQUE */}
                           <button
                             type="button"
-                            onClick={() => handleOpenModal(item, "camera")}
-                            className="inline-flex items-center gap-1.5 rounded-xl bg-[#002b5b] px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#001e42] hover:scale-[1.02] active:scale-[0.98]"
-                            title="Prendre votre certificat en photo avec la caméra"
-                          >
-                            <span>📷</span>
-                            <span>Photo caméra</span>
-                          </button>
-
-                          {/* Bouton pour importer un fichier */}
-                          <button
-                            type="button"
-                            onClick={() => handleOpenModal(item, "file")}
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-[#8fe3cf] bg-white px-3 py-1.5 text-xs font-bold text-[#002b5b] shadow-sm transition hover:bg-[#e5f8f3] hover:scale-[1.02] active:scale-[0.98]"
+                            onClick={() =>
+                              setOpenDropdownId(
+                                openDropdownId === item.id ? null : item.id
+                              )
+                            }
+                            className="inline-flex items-center gap-2 rounded-xl bg-[#002b5b] px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#001e42] hover:scale-[1.02] active:scale-[0.98]"
                           >
                             <span>📎</span>
-                            <span>Fichier</span>
+                            <span>Justifier l'absence</span>
+                            <span className="text-[10px] text-[#8fe3cf]">
+                              {openDropdownId === item.id ? "▲" : "▼"}
+                            </span>
                           </button>
 
-                          {/* Action 1-clic rapide */}
-                          <button
-                            type="button"
-                            disabled={isPending}
-                            onClick={() => handleQuickJustify(item)}
-                            className="inline-flex items-center gap-1 rounded-xl border border-[#c9d7ee] bg-white px-2.5 py-1.5 text-xs font-medium text-[#3d5278] transition hover:bg-[#f4f8fc] disabled:opacity-50"
-                            title="Régulariser immédiatement avec Certificat Médical"
-                          >
-                            <span>🩺</span>
-                            <span>1-clic</span>
-                          </button>
+                          {/* Menu déroulant au clic : Caméra ou Fichier */}
+                          {openDropdownId === item.id && (
+                            <div
+                              className={`absolute right-0 sm:left-0 z-40 w-64 rounded-2xl border border-[#c9d7ee] bg-white p-2 shadow-2xl animate-in fade-in zoom-in-95 ${
+                                isLast ? "bottom-full mb-1.5" : "top-full mt-1.5"
+                              }`}
+                            >
+                              <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#5a7199]">
+                                Options de justificatif
+                              </div>
+
+                              {/* Option 1: Caméra */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenDropdownId(null);
+                                  handleOpenModal(item, "camera");
+                                }}
+                                className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left text-xs transition hover:bg-[#f0f4f9] group"
+                              >
+                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#002b5b] text-base text-white group-hover:scale-105 transition shadow-sm">
+                                  📷
+                                </span>
+                                <div>
+                                  <div className="font-bold text-[#0c2340]">
+                                    Prendre une photo
+                                  </div>
+                                  <div className="text-[11px] text-[#5a7199]">
+                                    Avec la caméra / webcam
+                                  </div>
+                                </div>
+                              </button>
+
+                              {/* Option 2: Fichier à uploader */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenDropdownId(null);
+                                  handleOpenModal(item, "file");
+                                }}
+                                className="mt-1 flex w-full items-center gap-3 rounded-xl p-2.5 text-left text-xs transition hover:bg-[#f0f4f9] group"
+                              >
+                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#d7f6ee] text-base text-[#002b5b] group-hover:scale-105 transition shadow-sm">
+                                  📁
+                                </span>
+                                <div>
+                                  <div className="font-bold text-[#0c2340]">
+                                    Importer un fichier
+                                  </div>
+                                  <div className="text-[11px] text-[#5a7199]">
+                                    Document PDF, PNG ou JPG
+                                  </div>
+                                </div>
+                              </button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </Td>
