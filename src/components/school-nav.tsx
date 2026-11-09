@@ -15,6 +15,7 @@ function isActive(pathname: string, href: string, schoolId: string) {
     `/s/${schoolId}`,
     `/s/${schoolId}/teacher`,
     `/s/${schoolId}/parent`,
+    `/s/${schoolId}/student`,
   ];
   if (roots.includes(href)) return false;
   return pathname.startsWith(href);

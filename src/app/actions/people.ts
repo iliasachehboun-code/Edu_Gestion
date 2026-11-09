@@ -8,20 +8,51 @@ export async function createStudentAction(schoolId: string, formData: FormData) 
   await requireSchoolAccess(schoolId, ["SCHOOL_ADMIN"]);
   const firstName = String(formData.get("firstName") || "").trim();
   const lastName = String(formData.get("lastName") || "").trim();
+  const email = String(formData.get("email") || "").trim().toLowerCase();
   const matricule = String(formData.get("matricule") || "").trim() || null;
   const gender = String(formData.get("gender") || "").trim() || null;
   const dateOfBirth = String(formData.get("dateOfBirth") || "");
   const classId = String(formData.get("classId") || "");
   const yearId = String(formData.get("academicYearId") || "");
+  const password = String(formData.get("password") || "demo123");
 
   if (!firstName || !lastName) return;
 
   try {
+    let userId: string | undefined;
+    if (email) {
+      let user = await prisma.user.findUnique({ where: { email } });
+      if (!user) {
+        user = await prisma.user.create({
+          data: {
+            email,
+            firstName,
+            lastName,
+            passwordHash: await hashPassword(password),
+          },
+        });
+      }
+      userId = user.id;
+      await prisma.membership.upsert({
+        where: {
+          userId_schoolId_role: {
+            userId: user.id,
+            schoolId,
+            role: "STUDENT",
+          },
+        },
+        update: {},
+        create: { userId: user.id, schoolId, role: "STUDENT" },
+      });
+    }
+
     const student = await prisma.student.create({
       data: {
         schoolId,
+        userId,
         firstName,
         lastName,
+        email: email || null,
         matricule,
         gender,
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,

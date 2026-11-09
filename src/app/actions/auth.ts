@@ -40,6 +40,9 @@ export async function loginAction(formData: FormData) {
   if (membership.role === "TEACHER") {
     redirect(`/s/${membership.schoolId}/teacher`);
   }
+  if (membership.role === "STUDENT") {
+    redirect(`/s/${membership.schoolId}/student`);
+  }
   redirect(`/s/${membership.schoolId}`);
 }
 

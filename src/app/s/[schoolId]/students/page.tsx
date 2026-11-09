@@ -136,6 +136,9 @@ export default async function StudentsPage({
             <Field label="Matricule">
               <Input name="matricule" />
             </Field>
+            <Field label="Email (pour connexion à l'espace étudiant)">
+              <Input name="email" type="email" placeholder="eleve@ecole.fr" />
+            </Field>
             <Field label="Date de naissance">
               <Input name="dateOfBirth" type="date" />
             </Field>

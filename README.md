@@ -27,6 +27,7 @@ Ouvrir [http://localhost:3000](http://localhost:3000).
 | Directeur   | directeur@ecole-demo.fr   | demo123      |
 | Enseignant  | prof@ecole-demo.fr        | demo123      |
 | Parent      | parent@ecole-demo.fr      | demo123      |
+| Étudiant    | eleve@ecole-demo.fr       | demo123      |
 
 ## Modules
 

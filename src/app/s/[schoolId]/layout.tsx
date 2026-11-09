@@ -33,7 +33,19 @@ export default async function SchoolLayout({
   let items: { href: string; label: string }[] = [];
   let sections: NavSection[] = [];
 
-  if (role === "PARENT") {
+  if (role === "STUDENT") {
+    items = [
+      { href: `${base}/student`, label: "Tableau de bord" },
+      { href: `${base}/student/schedule`, label: "Emploi du temps" },
+      { href: `${base}/student/grades`, label: "Notes & Bulletins" },
+      { href: `${base}/student/homework`, label: "Devoirs & Évaluations" },
+      { href: `${base}/student/attendance`, label: "Absences & Retards" },
+      {
+        href: `${base}/student/notifications`,
+        label: unread ? `Notifications (${unread})` : "Notifications",
+      },
+    ];
+  } else if (role === "PARENT") {
     items = [
       { href: `${base}/parent`, label: "Tableau de bord" },
       { href: `${base}/parent/bulletins`, label: "Bulletins" },
@@ -106,7 +118,9 @@ export default async function SchoolLayout({
       ? "Administration"
       : role === "TEACHER"
         ? "Enseignant"
-        : "Parent";
+        : role === "STUDENT"
+          ? "Étudiant"
+          : "Parent";
 
   return (
     <div className="flex min-h-screen">

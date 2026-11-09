@@ -368,6 +368,22 @@ async function main() {
     }
   }
 
+  const lucas = createdStudents.find((s) => s.matricule === "STU-001") || createdStudents[0];
+  if (lucas) {
+    const studentUser = await ensureUser({
+      email: "eleve@ecole-demo.fr",
+      firstName: lucas.firstName,
+      lastName: lucas.lastName,
+      schoolId: school.id,
+      role: "STUDENT",
+      passwordHash: demoHash,
+    });
+    await prisma.student.update({
+      where: { id: lucas.id },
+      data: { userId: studentUser.id },
+    });
+  }
+
   const teachClasses = classSpecs.map((c) => c.name);
   for (const className of teachClasses) {
     for (const subjectName of Object.keys(subjects)) {
@@ -720,6 +736,7 @@ async function main() {
   console.log("Directeur  : directeur@ecole-demo.fr / demo123");
   console.log("Enseignant : prof@ecole-demo.fr / demo123");
   console.log("Parent     : parent@ecole-demo.fr / demo123");
+  console.log("Étudiant   : eleve@ecole-demo.fr / demo123");
 }
 
 async function ensureUser(params: {
@@ -727,7 +744,7 @@ async function ensureUser(params: {
   firstName: string;
   lastName: string;
   schoolId: string;
-  role: "SCHOOL_ADMIN" | "TEACHER" | "PARENT";
+  role: "SCHOOL_ADMIN" | "TEACHER" | "PARENT" | "STUDENT";
   passwordHash: string;
 }) {
   const user = await prisma.user.upsert({
