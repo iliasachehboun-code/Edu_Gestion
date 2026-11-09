@@ -38,7 +38,11 @@ export default async function StudentDashboardPage({
         orderBy: { createdAt: "desc" },
       }),
       prisma.attendance.findMany({
-        where: { schoolId, studentId: student.id, status: "ABSENT" },
+        where: {
+          schoolId,
+          studentId: student.id,
+          status: { in: ["ABSENT", "EXCUSED"] },
+        },
         include: { subject: true, teacher: true, class: true },
         orderBy: { date: "desc" },
       }),
@@ -81,7 +85,9 @@ export default async function StudentDashboardPage({
       : null;
 
   // Statistiques absences uniquement
-  const unjustifiedAbsences = attendances.filter((a) => !a.justified);
+  const unjustifiedAbsences = attendances.filter(
+    (a) => !a.justified && a.status !== "EXCUSED"
+  );
 
   // Cours d'aujourd'hui (1=Lundi ... 6=Samedi, 0=Dimanche)
   const currentDayOfWeek = new Date().getDay();
@@ -432,14 +438,25 @@ export default async function StudentDashboardPage({
                       {subjectName}
                     </Td>
                     <Td>
-                      {a.justified ? (
+                      {a.justified || a.status === "EXCUSED" ? (
                         <Badge tone="success">Justifiée</Badge>
                       ) : (
                         <Badge tone="danger">Non justifiée</Badge>
                       )}
                     </Td>
-                    <Td className="text-xs italic text-[#5a7199]">
-                      {a.reason || "—"}
+                    <Td className="text-xs">
+                      {a.justified || a.status === "EXCUSED" ? (
+                        <span className="font-semibold text-[#002b5b]">
+                          📋 {a.reason || "Certificat médical validé"}
+                        </span>
+                      ) : (
+                        <Link
+                          href={`/s/${schoolId}/student/attendance`}
+                          className="inline-flex items-center gap-1 font-semibold text-[#be123c] hover:underline"
+                        >
+                          <span>Déposer certificat &rarr;</span>
+                        </Link>
+                      )}
                     </Td>
                   </tr>
                 );

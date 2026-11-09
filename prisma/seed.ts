@@ -587,8 +587,8 @@ async function main() {
         time: timeSlotOptions[i % timeSlotOptions.length],
         date: absenceDates[i % absenceDates.length],
         status: "ABSENT" as const,
-        reason: i % 2 === 0 ? "Maladie / certificat médical" : "Absence injustifiée",
-        justified: i % 2 === 0,
+        reason: null,
+        justified: false, // Absence non justifiée
       },
       {
         schoolId: school.id,
@@ -598,8 +598,19 @@ async function main() {
         time: timeSlotOptions[(i + 1) % timeSlotOptions.length],
         date: absenceDates[(i + 2) % absenceDates.length],
         status: "ABSENT" as const,
-        reason: i % 3 === 0 ? "Rendez-vous médical" : "Motif personnel",
-        justified: i % 3 === 0,
+        reason: "Certificat médical validé",
+        justified: true,
+      },
+      {
+        schoolId: school.id,
+        studentId: student.id,
+        classId: student.classId,
+        subjectId: subjects[subjectKeys[(i + 4) % subjectKeys.length]].id,
+        time: timeSlotOptions[(i + 3) % timeSlotOptions.length],
+        date: absenceDates[(i + 3) % absenceDates.length],
+        status: "ABSENT" as const,
+        reason: null,
+        justified: false, // Seconde absence non justifiée
       },
     ];
   });

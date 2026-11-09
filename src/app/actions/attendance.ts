@@ -84,16 +84,36 @@ export async function justifyAttendanceAction(
   attendanceId: string,
   formData: FormData
 ) {
-  await requireSchoolAccess(schoolId, ["SCHOOL_ADMIN", "PARENT"]);
-  const reason = String(formData.get("reason") || "").trim();
+  await requireSchoolAccess(schoolId, ["SCHOOL_ADMIN", "PARENT", "STUDENT"]);
+  const reasonType = String(
+    formData.get("reasonType") || formData.get("reason") || "Certificat médical"
+  ).trim();
+  const comment = String(formData.get("comment") || "").trim();
+  const file = formData.get("certificateFile") as File | null;
+  const fileName = file && file.name && file.size > 0 ? file.name : null;
+
+  let finalReason = reasonType;
+  if (comment) {
+    finalReason += ` (${comment})`;
+  }
+  if (fileName) {
+    finalReason += ` [Pièce: ${fileName}]`;
+  }
+
   await prisma.attendance.update({
     where: { id: attendanceId },
     data: {
       justified: true,
       status: "EXCUSED",
-      reason: reason || undefined,
+      reason: finalReason || "Certificat médical validé",
     },
   });
+
   revalidatePath(`/s/${schoolId}/attendance`);
   revalidatePath(`/s/${schoolId}/parent`);
+  revalidatePath(`/s/${schoolId}/student/attendance`);
+  revalidatePath(`/s/${schoolId}/student`);
+
+  return { success: true, reason: finalReason };
 }
+
