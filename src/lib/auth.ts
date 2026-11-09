@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { createHash, randomBytes } from "crypto";
+import { cache } from "react";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 import type { GlobalRole, SchoolRole } from "@prisma/client";
@@ -55,7 +56,7 @@ export async function destroySession() {
   cookieStore.delete(SESSION_COOKIE);
 }
 
-export async function getSessionUser(): Promise<SessionUser | null> {
+export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) return null;
@@ -83,7 +84,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   }
 
   return session.user;
-}
+});
 
 export async function requireUser() {
   const user = await getSessionUser();

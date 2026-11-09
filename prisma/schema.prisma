@@ -319,6 +319,9 @@ model Grade {
   subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   term      Term    @relation(fields: [termId], references: [id], onDelete: Cascade)
   createdBy User?   @relation("GradeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([schoolId, studentId])
+  @@index([studentId])
 }
 
 model ReportCard {
@@ -422,6 +425,7 @@ model Attendance {
   teacher Teacher? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
 
   @@unique([studentId, date, classId])
+  @@index([schoolId, studentId])
 }
 
 model FeeType {
@@ -483,6 +487,8 @@ model Notification {
 
   school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, userId, read])
 }
 
 model Document {

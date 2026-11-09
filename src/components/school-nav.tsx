@@ -80,7 +80,12 @@ export function SchoolNav({
             </p>
             <div className="space-y-0.5">
               {section.items.map((item) => (
-                <Link key={item.href} href={item.href} className={linkClass(item.href)}>
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  prefetch={true}
+                  className={linkClass(item.href)}
+                >
                   {item.label}
                 </Link>
               ))}
@@ -90,7 +95,12 @@ export function SchoolNav({
         {items.length > 0 ? (
           <div className="space-y-0.5">
             {items.map((item) => (
-              <Link key={item.href} href={item.href} className={linkClass(item.href)}>
+              <Link
+                key={item.href}
+                href={item.href}
+                prefetch={true}
+                className={linkClass(item.href)}
+              >
                 {item.label}
               </Link>
             ))}
