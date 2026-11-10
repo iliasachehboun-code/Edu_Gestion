@@ -92,11 +92,10 @@ export default async function StudentEvaluationsPage({
   searchParams,
 }: {
   params: Promise<{ schoolId: string }>;
-  searchParams: Promise<{ filter?: string; subjectId?: string }>;
+  searchParams: Promise<{ subjectId?: string }>;
 }) {
   const { schoolId } = await params;
   const sp = await searchParams;
-  const filter = sp.filter || "upcoming";
   const subjectId = sp.subjectId || "";
 
   const { user } = await requireSchoolAccess(schoolId, [
@@ -140,17 +139,9 @@ export default async function StudentEvaluationsPage({
   const now = new Date();
   now.setHours(0, 0, 0, 0);
 
-  const upcomingEvals = evaluations.filter((ev) => new Date(ev.date) >= now);
-  const pastEvals = evaluations.filter((ev) => new Date(ev.date) < now);
-
-  const displayedEvals =
-    filter === "all"
-      ? evaluations
-      : filter === "past"
-      ? pastEvals
-      : upcomingEvals;
-
-  const nextExam = upcomingEvals[0] || null;
+  // Uniquement les évaluations à venir
+  const displayedEvals = evaluations.filter((ev) => new Date(ev.date) >= now);
+  const nextExam = displayedEvals[0] || null;
 
   const getCountdownLabel = (date: Date) => {
     const t = new Date(date);
@@ -227,62 +218,29 @@ export default async function StudentEvaluationsPage({
 
             <div className="flex shrink-0 items-center gap-2 self-end sm:self-center">
               <span className="rounded-xl bg-white/10 px-3 py-1.5 text-xs font-bold text-[#8fe3cf]">
-                {upcomingEvals.length} contrôle{upcomingEvals.length > 1 ? "s" : ""} à venir
+                {displayedEvals.length} contrôle{displayedEvals.length > 1 ? "s" : ""} à venir
               </span>
             </div>
           </div>
         </div>
       ) : null}
 
-      {/* Filtres simples : Onglets & Matières */}
+      {/* Barre d'en-tête de liste : Titre & Sélecteur de matière */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-[#c9d7ee] pb-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href={`/s/${schoolId}/student/evaluations?filter=upcoming${
-              subjectId ? `&subjectId=${subjectId}` : ""
-            }`}
-            className={`rounded-xl px-4 py-2 text-xs font-bold transition ${
-              filter === "upcoming"
-                ? "bg-[#002b5b] text-white shadow-sm"
-                : "bg-white text-[#5a7199] border border-[#c9d7ee] hover:bg-[#f4f8fc]"
-            }`}
-          >
-            ⏳ À venir ({upcomingEvals.length})
-          </Link>
-          <Link
-            href={`/s/${schoolId}/student/evaluations?filter=past${
-              subjectId ? `&subjectId=${subjectId}` : ""
-            }`}
-            className={`rounded-xl px-4 py-2 text-xs font-bold transition ${
-              filter === "past"
-                ? "bg-[#002b5b] text-white shadow-sm"
-                : "bg-white text-[#5a7199] border border-[#c9d7ee] hover:bg-[#f4f8fc]"
-            }`}
-          >
-            ✅ Passés ({pastEvals.length})
-          </Link>
-          <Link
-            href={`/s/${schoolId}/student/evaluations?filter=all${
-              subjectId ? `&subjectId=${subjectId}` : ""
-            }`}
-            className={`rounded-xl px-4 py-2 text-xs font-bold transition ${
-              filter === "all"
-                ? "bg-[#002b5b] text-white shadow-sm"
-                : "bg-white text-[#5a7199] border border-[#c9d7ee] hover:bg-[#f4f8fc]"
-            }`}
-          >
-            Tout voir ({evaluations.length})
-          </Link>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-2 rounded-xl bg-[#002b5b] px-4 py-2 text-xs font-bold text-white shadow-xs">
+            <span>⏳</span>
+            <span>Contrôles à venir ({displayedEvals.length})</span>
+          </span>
         </div>
 
         {/* Sélecteur de matière épuré */}
         <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-[#5a7199]">Filtrer :</span>
+          <span className="text-xs font-bold text-[#5a7199]">Filtrer par matière :</span>
           <EvaluationSubjectFilter
             schoolId={schoolId}
             subjects={subjects}
             currentSubjectId={subjectId}
-            currentFilter={filter}
           />
         </div>
       </div>
@@ -295,7 +253,6 @@ export default async function StudentEvaluationsPage({
       ) : (
         <div className="space-y-3.5">
           {displayedEvals.map((ev) => {
-            const isPast = new Date(ev.date) < now;
             const theme = getSubjectTheme(ev.subject.name);
             const countdown = getCountdownLabel(ev.date);
             const { dayName, dayNum, monthName } = getDayParts(ev.date);
@@ -303,18 +260,10 @@ export default async function StudentEvaluationsPage({
             return (
               <div
                 key={ev.id}
-                className={`flex flex-col sm:flex-row items-stretch rounded-2xl border transition overflow-hidden shadow-xs ${
-                  isPast
-                    ? "bg-[#fcfdfd] border-gray-200 opacity-75"
-                    : "bg-white border-[#c9d7ee] hover:border-[#002b5b] hover:shadow-md"
-                }`}
+                className="flex flex-col sm:flex-row items-stretch rounded-2xl border border-[#c9d7ee] bg-white hover:border-[#002b5b] hover:shadow-md transition overflow-hidden shadow-xs"
               >
                 {/* Bloc Date Calendrier (Très visuel, style agenda collège) */}
-                <div
-                  className={`flex sm:flex-col items-center justify-between sm:justify-center p-3.5 sm:w-28 shrink-0 text-center border-b sm:border-b-0 sm:border-r border-[#eef2f7] ${
-                    isPast ? "bg-gray-100 text-gray-500" : "bg-[#f4f8fc]"
-                  }`}
-                >
+                <div className="flex sm:flex-col items-center justify-between sm:justify-center p-3.5 sm:w-28 shrink-0 text-center border-b sm:border-b-0 sm:border-r border-[#eef2f7] bg-[#f4f8fc]">
                   <div className="flex sm:flex-col items-center gap-2 sm:gap-0">
                     <span className="text-[11px] font-black uppercase tracking-wider text-[#5a7199]">
                       {dayName}

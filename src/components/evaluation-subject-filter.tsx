@@ -6,12 +6,11 @@ export function EvaluationSubjectFilter({
   schoolId,
   subjects,
   currentSubjectId,
-  currentFilter,
 }: {
   schoolId: string;
   subjects: { id: string; name: string }[];
   currentSubjectId: string;
-  currentFilter: string;
+  currentFilter?: string;
 }) {
   const router = useRouter();
 
@@ -21,9 +20,11 @@ export function EvaluationSubjectFilter({
       onChange={(e) => {
         const val = e.target.value;
         const params = new URLSearchParams();
-        if (currentFilter) params.set("filter", currentFilter);
         if (val) params.set("subjectId", val);
-        router.push(`/s/${schoolId}/student/evaluations?${params.toString()}`);
+        const query = params.toString();
+        router.push(
+          `/s/${schoolId}/student/evaluations${query ? `?${query}` : ""}`
+        );
       }}
       className="rounded-xl border border-[#b7c9e6] bg-white px-3 py-1.5 text-xs font-semibold text-[#0c2340] outline-none focus:border-[#264c93] focus:ring-2 focus:ring-[#8fe3cf]"
     >
