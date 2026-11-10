@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/app/actions/auth";
+import { NotificationBell, type NotificationData } from "@/components/notification-bell";
 
 export type NavItem = { href: string; label: string };
 export type NavSection = { title: string; items: NavItem[] };
@@ -29,6 +30,8 @@ export function SchoolNav({
   role,
   items = [],
   sections = [],
+  unreadNotificationsCount = 0,
+  recentNotifications = [],
 }: {
   schoolId: string;
   schoolName: string;
@@ -36,6 +39,8 @@ export function SchoolNav({
   role: string;
   items?: NavItem[];
   sections?: NavSection[];
+  unreadNotificationsCount?: number;
+  recentNotifications?: NotificationData[];
 }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -143,14 +148,23 @@ export function SchoolNav({
           </span>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-xl font-bold text-[#8fe3cf] hover:bg-white/20 transition active:scale-95"
-          aria-label="Menu"
-        >
-          {mobileMenuOpen ? "✕" : "☰"}
-        </button>
+        <div className="flex items-center gap-2">
+          <NotificationBell
+            schoolId={schoolId}
+            unreadCount={unreadNotificationsCount}
+            notifications={recentNotifications}
+            variant="dark"
+          />
+
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-xl font-bold text-[#8fe3cf] hover:bg-white/20 transition active:scale-95"
+            aria-label="Menu"
+          >
+            {mobileMenuOpen ? "✕" : "☰"}
+          </button>
+        </div>
       </header>
 
       {/* 📱 Tiroir coulissant mobile */}

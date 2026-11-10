@@ -7,22 +7,26 @@ import { requireUser } from "@/lib/auth";
 export async function markNotificationReadAction(
   schoolId: string,
   notificationId: string
-) {
+): Promise<void> {
   const user = await requireUser();
   await prisma.notification.updateMany({
     where: { id: notificationId, userId: user.id },
     data: { read: true },
   });
   revalidatePath(`/s/${schoolId}`);
+  revalidatePath(`/s/${schoolId}/student`);
+  revalidatePath(`/s/${schoolId}/student/notifications`);
   revalidatePath(`/s/${schoolId}/parent`);
 }
 
-export async function markAllNotificationsReadAction(schoolId: string) {
+export async function markAllNotificationsReadAction(schoolId: string): Promise<void> {
   const user = await requireUser();
   await prisma.notification.updateMany({
     where: { schoolId, userId: user.id, read: false },
     data: { read: true },
   });
   revalidatePath(`/s/${schoolId}`);
+  revalidatePath(`/s/${schoolId}/student`);
+  revalidatePath(`/s/${schoolId}/student/notifications`);
   revalidatePath(`/s/${schoolId}/parent`);
 }

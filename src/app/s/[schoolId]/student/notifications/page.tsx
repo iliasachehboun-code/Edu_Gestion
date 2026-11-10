@@ -15,6 +15,8 @@ import {
 } from "@/app/actions/notifications";
 import { formatDate } from "@/lib/utils";
 
+import Link from "next/link";
+
 export default async function StudentNotificationsPage({
   params,
 }: {
@@ -66,7 +68,7 @@ export default async function StudentNotificationsPage({
                     {n.type === "GRADE"
                       ? "Note"
                       : n.type === "SCHEDULE"
-                        ? "Planning"
+                        ? "Planning / Examen"
                         : n.type === "ATTENDANCE"
                           ? "Présence"
                           : "Général"}
@@ -74,7 +76,16 @@ export default async function StudentNotificationsPage({
                 </Td>
                 <Td className="font-semibold text-[#0c2340]">
                   <div className="flex items-center gap-2">
-                    {n.title}
+                    {n.link ? (
+                      <Link
+                        href={n.link}
+                        className="hover:underline hover:text-[#002b5b] transition"
+                      >
+                        {n.title} &rarr;
+                      </Link>
+                    ) : (
+                      <span>{n.title}</span>
+                    )}
                     {!n.read ? <Badge tone="info">Nouveau</Badge> : null}
                   </div>
                 </Td>
