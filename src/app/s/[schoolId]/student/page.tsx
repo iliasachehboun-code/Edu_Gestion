@@ -82,10 +82,34 @@ export default async function StudentDashboardPage({
           },
           include: { subject: true },
           orderBy: { date: "asc" },
-          take: 3,
+          take: 5,
         })
       : [],
   ]);
+
+  const now = new Date();
+  const todayMidnight = new Date(now);
+  todayMidnight.setHours(0, 0, 0, 0);
+
+  // Filtrage automatique des évaluations terminées
+  const activeEvaluations = upcomingEvaluations.filter((ev) => {
+    const evDate = new Date(ev.date);
+    evDate.setHours(0, 0, 0, 0);
+
+    if (evDate < todayMidnight) return false;
+
+    if (evDate.getTime() === todayMidnight.getTime() && ev.startTime) {
+      const cleanTime = ev.startTime.replace("h", ":").trim();
+      const [hours, minutes] = cleanTime.split(":").map(Number);
+      if (!isNaN(hours)) {
+        const endDateTime = new Date(now);
+        endDateTime.setHours(hours, minutes || 0, 0, 0);
+        endDateTime.setMinutes(endDateTime.getMinutes() + (ev.durationMin || 55));
+        if (now > endDateTime) return false;
+      }
+    }
+    return true;
+  }).slice(0, 3);
 
   // Calcul de la note générale du Semestre 1
   const validGrades = grades.filter((g) => g.maxScore > 0);
@@ -114,7 +138,6 @@ export default async function StudentDashboardPage({
   const todayClasses = scheduleEntries.filter((e) => e.dayOfWeek === dayKey);
 
   // Détermination du cours suivant
-  const now = new Date();
   const currentHour = now.getHours();
   const currentMinutes = now.getMinutes();
   const currentTimeStr = `${String(currentHour).padStart(2, "0")}:${String(currentMinutes).padStart(2, "0")}`;
@@ -445,13 +468,13 @@ export default async function StudentDashboardPage({
           </Link>
         </div>
 
-        {upcomingEvaluations.length === 0 ? (
+        {activeEvaluations.length === 0 ? (
           <div className="rounded-xl bg-[#f4f8fc] p-6 text-center text-sm font-medium text-[#002b5b]">
             🎉 Aucune évaluation programmée pour le moment.
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {upcomingEvaluations.map((ev) => (
+            {activeEvaluations.map((ev) => (
               <div
                 key={ev.id}
                 className="rounded-xl border border-[#c9d7ee] bg-[#fbfdff] p-3.5 space-y-2 hover:border-[#002b5b] transition shadow-xs"

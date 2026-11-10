@@ -122,10 +122,16 @@ export default async function StudentEvaluationsPage({
     orderBy: { name: "asc" },
   });
 
+  const now = new Date();
+  const todayMidnight = new Date(now);
+  todayMidnight.setHours(0, 0, 0, 0);
+
+  // Requête en base : filtre automatiquement pour ne récupérer que les dates actuelles et futures
   const evaluations = await prisma.evaluation.findMany({
     where: {
       schoolId,
       classId,
+      date: { gte: todayMidnight },
       ...(subjectId ? { subjectId } : {}),
     },
     include: {
@@ -136,24 +142,48 @@ export default async function StudentEvaluationsPage({
     orderBy: { date: "asc" },
   });
 
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
+  // Suppression / Retrait automatique dès que la date ou l'heure de fin de l'épreuve est passée
+  const displayedEvals = evaluations.filter((ev) => {
+    const evDate = new Date(ev.date);
+    evDate.setHours(0, 0, 0, 0);
 
-  // Uniquement les évaluations à venir
-  const displayedEvals = evaluations.filter((ev) => new Date(ev.date) >= now);
+    // Si la date est passée, disparaît automatiquement
+    if (evDate < todayMidnight) return false;
+
+    // Si le contrôle a lieu aujourd'hui, vérifier si l'heure de fin de l'épreuve est dépassée
+    if (evDate.getTime() === todayMidnight.getTime() && ev.startTime) {
+      const cleanTime = ev.startTime.replace("h", ":").trim();
+      const parts = cleanTime.split(":");
+      const hours = parseInt(parts[0], 10);
+      const minutes = parseInt(parts[1] || "0", 10);
+
+      if (!isNaN(hours)) {
+        const endDateTime = new Date(now);
+        endDateTime.setHours(hours, minutes, 0, 0);
+        endDateTime.setMinutes(endDateTime.getMinutes() + (ev.durationMin || 55));
+
+        // Dès que l'épreuve est terminée, elle disparaît automatiquement de la vue élève
+        if (now > endDateTime) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  });
+
   const nextExam = displayedEvals[0] || null;
 
   const getCountdownLabel = (date: Date) => {
     const t = new Date(date);
     t.setHours(0, 0, 0, 0);
-    const diffTime = t.getTime() - now.getTime();
+    const diffTime = t.getTime() - todayMidnight.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays === 0) return { label: "Aujourd'hui !", color: "bg-red-500 text-white font-black animate-pulse" };
     if (diffDays === 1) return { label: "Demain !", color: "bg-amber-500 text-white font-bold" };
     if (diffDays === 2) return { label: "Dans 2 jours", color: "bg-blue-600 text-white font-bold" };
-    if (diffDays > 2) return { label: `Dans ${diffDays} jours`, color: "bg-[#e8f1fc] text-[#002b5b] font-bold" };
-    return { label: `Passé`, color: "bg-gray-100 text-gray-500 font-medium" };
+    return { label: `Dans ${diffDays} jours`, color: "bg-[#e8f1fc] text-[#002b5b] font-bold" };
   };
 
   const getDayParts = (date: Date) => {
