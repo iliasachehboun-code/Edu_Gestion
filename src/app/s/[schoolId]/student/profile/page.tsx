@@ -3,7 +3,6 @@ import { getStudentForUser } from "@/lib/student";
 import { prisma } from "@/lib/prisma";
 import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
 import { formatDate, fullName } from "@/lib/utils";
-import { StudentPasswordChangeForm } from "@/components/student-password-change";
 import Link from "next/link";
 
 export default async function StudentProfilePage({
@@ -278,22 +277,31 @@ export default async function StudentProfilePage({
       </Card>
 
       {/* 4. Sécurité & Modification du Mot de Passe 🔒 */}
-      <Card className="p-6 space-y-4 border-l-4 border-l-[#002b5b]">
-        <div className="flex items-center justify-between border-b border-[#eef2f7] pb-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🔒</span>
+      <Card className="p-6 border-l-4 border-l-[#002b5b]">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#eef5fc] text-2xl text-[#002b5b]">
+              🔒
+            </div>
             <div>
               <h2 className="text-base font-bold text-[#0c2340]">
-                Sécurité de mon Compte & Modification du Mot de Passe
+                Sécurité du Compte & Mot de Passe
               </h2>
               <p className="text-xs text-[#5a7199]">
-                Changez votre mot de passe à tout moment en toute autonomie.
+                Changez votre mot de passe à tout moment pour protéger votre espace élève.
               </p>
             </div>
           </div>
-        </div>
 
-        <StudentPasswordChangeForm schoolId={schoolId} />
+          <Link
+            href={`/s/${schoolId}/student/profile/password`}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#002b5b] px-4 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-[#001e42] hover:shadow"
+          >
+            <span>🔑</span>
+            <span>Modifier mon mot de passe</span>
+            <span>&rarr;</span>
+          </Link>
+        </div>
       </Card>
     </div>
   );

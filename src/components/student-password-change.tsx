@@ -3,8 +3,15 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui";
 import { changePasswordAction } from "@/app/actions/auth";
+import Link from "next/link";
 
-export function StudentPasswordChangeForm({ schoolId }: { schoolId: string }) {
+export function StudentPasswordChangeForm({
+  schoolId,
+  backHref,
+}: {
+  schoolId: string;
+  backHref?: string;
+}) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -42,7 +49,6 @@ export function StudentPasswordChangeForm({ schoolId }: { schoolId: string }) {
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
-        setTimeout(() => setSuccess(null), 8000);
       }
     });
   };
@@ -56,8 +62,20 @@ export function StudentPasswordChangeForm({ schoolId }: { schoolId: string }) {
       )}
 
       {success && (
-        <div className="rounded-xl border border-[#8fe3cf] bg-[#d7f6ee] p-4 text-xs font-bold text-[#002b5b] shadow-sm animate-in fade-in">
-          🎉 {success}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-[#8fe3cf] bg-[#d7f6ee] p-4 text-xs font-bold text-[#002b5b] shadow-sm animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <span>🎉</span>
+            <span>{success}</span>
+          </div>
+          {backHref && (
+            <Link
+              href={backHref}
+              className="inline-flex items-center gap-1.5 self-start sm:self-auto rounded-lg bg-[#002b5b] px-3 py-1.5 text-xs text-white hover:bg-[#001e42] transition shadow-xs"
+            >
+              <span>Retourner au profil</span>
+              <span>&rarr;</span>
+            </Link>
+          )}
         </div>
       )}
 
@@ -108,7 +126,15 @@ export function StudentPasswordChangeForm({ schoolId }: { schoolId: string }) {
           </div>
         </div>
 
-        <div className="pt-2 flex items-center justify-end">
+        <div className="pt-2 flex items-center justify-end gap-3">
+          {backHref && (
+            <Link
+              href={backHref}
+              className="rounded-xl border border-[#c9d7ee] bg-white px-4 py-2.5 text-xs font-bold text-[#3d5278] hover:bg-[#f4f8fc] transition"
+            >
+              Annuler
+            </Link>
+          )}
           <Button
             type="submit"
             disabled={isPending || !currentPassword || !newPassword || !confirmPassword}
