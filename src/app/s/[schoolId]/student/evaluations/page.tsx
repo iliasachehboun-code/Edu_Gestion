@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { Badge, Button, Card, EmptyState, PageHeader } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
 import Link from "next/link";
+import { EvaluationSubjectFilter } from "@/components/evaluation-subject-filter";
 
 export default async function StudentEvaluationsPage({
   params,
@@ -248,22 +249,12 @@ export default async function StudentEvaluationsPage({
         {/* Filtre Matière */}
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-[#5a7199]">Matière :</span>
-          <form method="get" className="flex items-center gap-2">
-            <input type="hidden" name="filter" value={filter} />
-            <select
-              name="subjectId"
-              defaultValue={subjectId}
-              onChange={(e) => e.target.form?.submit()}
-              className="rounded-xl border border-[#b7c9e6] bg-white px-3 py-1.5 text-xs font-semibold text-[#0c2340] outline-none focus:border-[#264c93]"
-            >
-              <option value="">Toutes les matières</option>
-              {subjects.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </form>
+          <EvaluationSubjectFilter
+            schoolId={schoolId}
+            subjects={subjects}
+            currentSubjectId={subjectId}
+            currentFilter={filter}
+          />
         </div>
       </div>
 
