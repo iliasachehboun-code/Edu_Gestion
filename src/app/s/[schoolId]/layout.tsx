@@ -38,9 +38,11 @@ export default async function SchoolLayout({
       { href: `${base}/student`, label: "Tableau de bord" },
       { href: `${base}/student/schedule`, label: "Emploi du temps" },
       { href: `${base}/student/grades`, label: "Notes & Bulletins" },
+      { href: `${base}/student/evaluations`, label: "Examens & Évaluations" },
       { href: `${base}/student/attendance`, label: "Mes Absences" },
-      { href: `${base}/student/documents`, label: "Documents Officiels" },
-      { href: `${base}/student/requests`, label: "Demandes Administratives" },
+      { href: `${base}/student/documents`, label: "Documents Scolaires" },
+      { href: `${base}/student/requests`, label: "Vie Scolaire & Démarches" },
+      { href: `${base}/student/profile`, label: "Mon Espace Personnel" },
       {
         href: `${base}/student/notifications`,
         label: unread ? `Notifications (${unread})` : "Notifications",

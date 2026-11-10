@@ -814,6 +814,109 @@ async function main() {
         ],
       });
     }
+
+    const class6A = classes["6ème A"];
+    if (class6A) {
+      const existingEvals = await prisma.evaluation.count({
+        where: { classId: class6A.id },
+      });
+      if (existingEvals === 0) {
+        await prisma.evaluation.createMany({
+          data: [
+            {
+              schoolId: school.id,
+              classId: class6A.id,
+              subjectId: subjects["Mathématiques"].id,
+              termId: term1?.id,
+              title: "Contrôle Continu n°2 - Fractions & Nombres Décimaux",
+              type: "CONTROLE",
+              date: new Date("2026-11-13T09:00:00.000Z"),
+              startTime: "09h00",
+              durationMin: 55,
+              coefficient: 1.5,
+              room: "Salle 102",
+              instructions: "Calculatrice collège interdite. Prévoir matériel de géométrie (règle graduée, compas, équerre).",
+              topics: "Chapitre 3 : Additions et soustractions de fractions de même dénominateur, écriture décimale et arrondis.",
+            },
+            {
+              schoolId: school.id,
+              classId: class6A.id,
+              subjectId: subjects["Français"].id,
+              termId: term1?.id,
+              title: "Devoir Commun - Dictée préparée & Étude de texte",
+              type: "DEVOIR_COMMUN",
+              date: new Date("2026-11-17T10:15:00.000Z"),
+              startTime: "10h15",
+              durationMin: 110,
+              coefficient: 2.0,
+              room: "Salle Polyvalente",
+              instructions: "Feuilles doubles d'examen fournies. Encre bleue ou noire uniquement. Dictionnaire interdit.",
+              topics: "Récits de création et Odyssée : compréhension de texte, analyse grammaticale et accords du participe passé.",
+            },
+            {
+              schoolId: school.id,
+              classId: class6A.id,
+              subjectId: subjects["Histoire-Géo"].id,
+              termId: term1?.id,
+              title: "Évaluation de Connaissances - Premiers États & Écritures",
+              type: "CONTROLE",
+              date: new Date("2026-11-20T14:00:00.000Z"),
+              startTime: "14h00",
+              durationMin: 50,
+              coefficient: 1.0,
+              room: "Salle 204",
+              instructions: "Crayons de couleur nécessaires pour la légende de la carte du Croissant Fertile.",
+              topics: "Mésopotamie et Égypte antique : apparition de l'écriture cunéiforme, rôle des scribes et des pharaons.",
+            },
+            {
+              schoolId: school.id,
+              classId: class6A.id,
+              subjectId: subjects["SVT"].id,
+              termId: term1?.id,
+              title: "Travaux Pratiques Notés - Observation microscopique",
+              type: "TP_NOTE",
+              date: new Date("2026-11-24T08:00:00.000Z"),
+              startTime: "08h00",
+              durationMin: 55,
+              room: "Labo Sciences 1",
+              coefficient: 1.0,
+              instructions: "Blouse blanche en coton obligatoire. Réalisation d'une lamelle d'épiderme d'oignon.",
+              topics: "Réglage du microscope optique, grossissement x100 et dessin scientifique légendé.",
+            },
+            {
+              schoolId: school.id,
+              classId: class6A.id,
+              subjectId: subjects["Anglais"].id,
+              termId: term1?.id,
+              title: "Évaluation formative orale - My Daily Routine",
+              type: "INTERROGATION",
+              date: new Date("2026-11-28T11:15:00.000Z"),
+              startTime: "11h15",
+              durationMin: 50,
+              room: "Salle 105",
+              coefficient: 1.0,
+              instructions: "Passage oral individuel de 2 minutes sans notes. Prise de parole en continu.",
+              topics: "Présent simple, adverbes de fréquence (always, sometimes, never), vocabulaire de la journée.",
+            },
+            {
+              schoolId: school.id,
+              classId: class6A.id,
+              subjectId: subjects["Mathématiques"].id,
+              termId: term1?.id,
+              title: "Contrôle Continu n°1 - Priorités opératoires & Droites",
+              type: "CONTROLE",
+              date: new Date("2026-11-02T09:00:00.000Z"),
+              startTime: "09h00",
+              durationMin: 55,
+              room: "Salle 102",
+              coefficient: 1.0,
+              instructions: "Épreuve passée et corrigée. Consulter la note sur le relevé de notes.",
+              topics: "Calculs avec parenthèses, droites perpendiculaires et parallèles.",
+            },
+          ],
+        });
+      }
+    }
   }
 
   const [students, teachersCount, grades, fees] = await Promise.all([

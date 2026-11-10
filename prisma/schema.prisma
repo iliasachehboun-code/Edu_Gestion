@@ -112,6 +112,7 @@ model School {
   campusServices    CampusService[]
   administrativeRequests AdministrativeRequest[]
   auditLogs         AuditLog[]
+  evaluations       Evaluation[]
 }
 
 model Membership {
@@ -156,6 +157,7 @@ model Term {
   academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
   grades       Grade[]
   reportCards  ReportCard[]
+  evaluations  Evaluation[]
 
   @@unique([academicYearId, order])
 }
@@ -173,6 +175,7 @@ model Class {
   teacherAssignments TeacherAssignment[]
   scheduleEntries    ScheduleEntry[]
   attendances        Attendance[]
+  evaluations        Evaluation[]
 
   @@unique([schoolId, name])
 }
@@ -191,6 +194,7 @@ model Subject {
   scheduleEntries    ScheduleEntry[]
   reportCardLines    ReportCardLine[]
   attendances        Attendance[]
+  evaluations        Evaluation[]
 
   @@unique([schoolId, name])
 }
@@ -579,4 +583,32 @@ model AuditLog {
   @@index([schoolId, userId])
   @@index([schoolId, createdAt])
 }
+
+model Evaluation {
+  id           String    @id @default(cuid())
+  schoolId     String
+  classId      String
+  subjectId    String
+  termId       String?
+  title        String
+  type         String    @default("CONTROLE") // CONTROLE, DEVOIR_SUR_TABLE, EXAMEN_BLANC, TP, INTERROGATION
+  date         DateTime
+  startTime    String?   // Ex: "09:00"
+  durationMin  Int       @default(60) // Durée en minutes (ex: 60, 120)
+  coefficient  Float     @default(1)
+  room         String?   // Ex: "Salle 102"
+  instructions String?   // Ex: "Calculatrice collège autorisée. Prévoir feuilles doubles."
+  topics       String?   // Programme / Chapitres révisés (ex: "Chapitre 3 : Théorème de Pythagore")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  term    Term?   @relation(fields: [termId], references: [id], onDelete: SetNull)
+
+  @@index([schoolId, classId])
+  @@index([schoolId, date])
+}
+
 

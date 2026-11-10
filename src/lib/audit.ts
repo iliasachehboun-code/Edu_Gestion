@@ -8,13 +8,15 @@ export type AuditAction =
   | "BULLETIN_DOWNLOAD"
   | "CERTIFICAT_SCOLARITE_DOWNLOAD"
   | "ADMIN_REQUEST_CREATE"
-  | "ADMIN_REQUEST_UPDATE";
+  | "ADMIN_REQUEST_UPDATE"
+  | "PASSWORD_CHANGE";
 
 export type AuditResourceType =
   | "ATTENDANCE"
   | "REPORT_CARD"
   | "CERTIFICATE"
-  | "ADMIN_REQUEST";
+  | "ADMIN_REQUEST"
+  | "USER";
 
 export async function logAuditEvent({
   schoolId,

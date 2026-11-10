@@ -30,44 +30,62 @@ export default async function StudentDashboardPage({
   const classId = enrollment?.classId;
 
   // Récupération des données en parallèle
-  const [grades, attendances, terms, unreadNotifications, scheduleEntries] =
-    await Promise.all([
-      prisma.grade.findMany({
-        where: { schoolId, studentId: student.id },
-        include: { subject: true, term: true },
-        orderBy: { createdAt: "desc" },
-      }),
-      prisma.attendance.findMany({
-        where: {
-          schoolId,
-          studentId: student.id,
-          status: { in: ["ABSENT", "EXCUSED"] },
-        },
-        include: { subject: true, teacher: true, class: true },
-        orderBy: { date: "desc" },
-      }),
-      enrollment
-        ? prisma.term.findMany({
-            where: { academicYearId: enrollment.academicYearId },
-            orderBy: { order: "asc" },
-          })
-        : [],
-      prisma.notification.count({
-        where: { schoolId, userId: user.id, read: false },
-      }),
-      classId
-        ? prisma.scheduleEntry.findMany({
-            where: { schoolId, classId },
-            include: {
-              subject: true,
-              teacher: true,
-              timeSlot: true,
-              room: true,
-            },
-            orderBy: [{ dayOfWeek: "asc" }, { timeSlot: { order: "asc" } }],
-          })
-        : [],
-    ]);
+  const [
+    grades,
+    attendances,
+    terms,
+    unreadNotifications,
+    scheduleEntries,
+    upcomingEvaluations,
+  ] = await Promise.all([
+    prisma.grade.findMany({
+      where: { schoolId, studentId: student.id },
+      include: { subject: true, term: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.attendance.findMany({
+      where: {
+        schoolId,
+        studentId: student.id,
+        status: { in: ["ABSENT", "EXCUSED"] },
+      },
+      include: { subject: true, teacher: true, class: true },
+      orderBy: { date: "desc" },
+    }),
+    enrollment
+      ? prisma.term.findMany({
+          where: { academicYearId: enrollment.academicYearId },
+          orderBy: { order: "asc" },
+        })
+      : [],
+    prisma.notification.count({
+      where: { schoolId, userId: user.id, read: false },
+    }),
+    classId
+      ? prisma.scheduleEntry.findMany({
+          where: { schoolId, classId },
+          include: {
+            subject: true,
+            teacher: true,
+            timeSlot: true,
+            room: true,
+          },
+          orderBy: [{ dayOfWeek: "asc" }, { timeSlot: { order: "asc" } }],
+        })
+      : [],
+    classId
+      ? prisma.evaluation.findMany({
+          where: {
+            schoolId,
+            classId,
+            date: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
+          },
+          include: { subject: true },
+          orderBy: { date: "asc" },
+          take: 3,
+        })
+      : [],
+  ]);
 
   // Calcul de la note générale du Semestre 1
   const validGrades = grades.filter((g) => g.maxScore > 0);
@@ -146,12 +164,20 @@ export default async function StudentDashboardPage({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          <Link href={`/s/${schoolId}/student/evaluations`}>
+            <Button
+              variant="secondary"
+              className="bg-white/10 text-white border-white/20 hover:bg-white/20 text-xs font-semibold"
+            >
+              📝 Examens & Évaluations
+            </Button>
+          </Link>
           <Link href={`/s/${schoolId}/student/documents`}>
             <Button
               variant="secondary"
               className="bg-white/10 text-white border-white/20 hover:bg-white/20 text-xs font-semibold"
             >
-              📜 Documents PDF
+              📜 Documents
             </Button>
           </Link>
           <Link href={`/s/${schoolId}/student/requests`}>
@@ -159,15 +185,15 @@ export default async function StudentDashboardPage({
               variant="secondary"
               className="bg-white/10 text-white border-white/20 hover:bg-white/20 text-xs font-semibold"
             >
-              🏛️ Demandes en ligne
+              🏛️ Démarches
             </Button>
           </Link>
-          <Link href={`/s/${schoolId}/student/schedule`}>
+          <Link href={`/s/${schoolId}/student/profile`}>
             <Button
               variant="secondary"
               className="bg-white/10 text-white border-white/20 hover:bg-white/20 text-xs font-semibold"
             >
-              📅 Mon planning
+              👤 Mon Profil
             </Button>
           </Link>
           <Link href={`/s/${schoolId}/student/grades`}>
@@ -399,6 +425,57 @@ export default async function StudentDashboardPage({
           )}
         </Card>
       </div>
+
+      {/* Section Prochains Examens & Contrôles */}
+      <Card>
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-[#0c2340]">
+              Prochaines Évaluations & Contrôles programmés
+            </h2>
+            <p className="text-xs text-[#3d5278]">
+              Épreuves à venir pour votre classe ({enrollment?.class.name || "6ème A"})
+            </p>
+          </div>
+          <Link
+            href={`/s/${schoolId}/student/evaluations`}
+            className="text-xs font-semibold text-[#264c93] hover:underline"
+          >
+            Calendrier complet &rarr;
+          </Link>
+        </div>
+
+        {upcomingEvaluations.length === 0 ? (
+          <div className="rounded-xl bg-[#f4f8fc] p-6 text-center text-sm font-medium text-[#002b5b]">
+            🎉 Aucune évaluation programmée pour le moment.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {upcomingEvaluations.map((ev) => (
+              <div
+                key={ev.id}
+                className="rounded-xl border border-[#c9d7ee] bg-[#fbfdff] p-3.5 space-y-2 hover:border-[#002b5b] transition shadow-xs"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="rounded-md bg-[#002b5b] px-2 py-0.5 text-[10px] font-bold text-white">
+                    {ev.subject.name}
+                  </span>
+                  <span className="text-[11px] font-bold text-[#be123c]">
+                    📅 {formatDate(ev.date)}
+                  </span>
+                </div>
+                <h4 className="font-bold text-xs text-[#0c2340] line-clamp-1">
+                  {ev.title}
+                </h4>
+                <div className="flex items-center justify-between text-[11px] text-[#5a7199] border-t border-[#f0f4f9] pt-1.5">
+                  <span>⏱️ {ev.startTime || "09h00"} ({ev.durationMin}m)</span>
+                  <span>Coeff. {ev.coefficient}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
 
       {/* Section Absences : Date, Heure, Matière */}
       <Card>
