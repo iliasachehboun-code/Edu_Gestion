@@ -1,10 +1,14 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { LandingPage } from "@/components/landing-page";
 
 export default async function HomePage() {
   const user = await getSessionUser();
-  if (!user) redirect("/login");
+
+  if (!user) {
+    return <LandingPage />;
+  }
 
   if (user.globalRole === "SUPER_ADMIN") redirect("/superadmin");
 

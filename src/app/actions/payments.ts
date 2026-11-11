@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAccess } from "@/lib/auth";
 import { notifyParentsOfStudent } from "@/lib/notifications";
+import { redirectWithNotice } from "@/lib/flash";
 
 async function refreshFeeStatus(studentFeeId: string) {
   const fee = await prisma.studentFee.findUnique({
@@ -53,6 +54,10 @@ export async function createFeeTypeAction(
     return;
   }
   revalidatePath(`/s/${schoolId}/payments`);
+  redirectWithNotice(
+    `/s/${schoolId}/payments?tab=types`,
+    "Type de frais créé."
+  );
 }
 
 export async function assignFeeAction(schoolId: string, formData: FormData) {
@@ -95,6 +100,10 @@ export async function assignFeeAction(schoolId: string, formData: FormData) {
 
   revalidatePath(`/s/${schoolId}/payments`);
   revalidatePath(`/s/${schoolId}/parent`);
+  redirectWithNotice(
+    `/s/${schoolId}/payments?tab=assigner`,
+    "Frais assigné à l'élève."
+  );
 }
 
 export async function recordPaymentAction(
@@ -137,4 +146,8 @@ export async function recordPaymentAction(
 
   revalidatePath(`/s/${schoolId}/payments`);
   revalidatePath(`/s/${schoolId}/parent`);
+  redirectWithNotice(
+    `/s/${schoolId}/payments?tab=payer`,
+    "Paiement enregistré."
+  );
 }

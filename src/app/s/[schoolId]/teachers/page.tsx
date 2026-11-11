@@ -19,6 +19,8 @@ import {
   deleteTeacherAction,
   removeAssignmentAction,
 } from "@/app/actions/people";
+import { schoolTrail } from "@/components/breadcrumbs";
+import { ConfirmSubmit } from "@/components/confirm-submit";
 import { fullName } from "@/lib/utils";
 
 export default async function TeachersPage({
@@ -47,6 +49,10 @@ export default async function TeachersPage({
       <PageHeader
         title="Enseignants et personnel"
         description="Profils, comptes et affectations classe / matière."
+        breadcrumbs={schoolTrail(schoolId, {
+          label: "Enseignants",
+          path: "/teachers",
+        })}
       />
       <div className="grid gap-8 xl:grid-cols-2">
         <div className="space-y-6">
@@ -80,12 +86,7 @@ export default async function TeachersPage({
                           await deleteTeacherAction(schoolId, t.id);
                         }}
                       >
-                        <button
-                          type="submit"
-                          className="text-sm text-red-600 hover:underline"
-                        >
-                          Supprimer
-                        </button>
+                        <ConfirmSubmit message="Confirmer cette suppression ?">Supprimer</ConfirmSubmit>
                       </form>
                     </Td>
                   </tr>
@@ -97,13 +98,13 @@ export default async function TeachersPage({
           <Card>
             <h2 className="mb-4 text-lg font-semibold">Affectations</h2>
             {assignments.length === 0 ? (
-              <p className="text-sm text-[#3d5278]">Aucune affectation.</p>
+              <p className="text-sm text-muted">Aucune affectation.</p>
             ) : (
               <ul className="space-y-2 text-sm">
                 {assignments.map((a) => (
                   <li
                     key={a.id}
-                    className="flex items-center justify-between gap-2 rounded-lg bg-[#f4f8fc] px-3 py-2"
+                    className="flex items-center justify-between gap-2 rounded-lg bg-brand-soft px-3 py-2"
                   >
                     <span>
                       {fullName(a.teacher.firstName, a.teacher.lastName)} —{" "}
@@ -115,9 +116,12 @@ export default async function TeachersPage({
                         await removeAssignmentAction(schoolId, a.id);
                       }}
                     >
-                      <button type="submit" className="text-red-600">
+                      <ConfirmSubmit
+                        message="Retirer cette affectation ?"
+                        className="text-lg leading-none"
+                      >
                         ×
-                      </button>
+                      </ConfirmSubmit>
                     </form>
                   </li>
                 ))}

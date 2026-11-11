@@ -24,18 +24,18 @@ async function main() {
   const school = await prisma.school.upsert({
     where: { slug: "ecole-demo" },
     update: {
-      name: "Henri Moissan",
+      name: "École Démo",
       active: true,
-      address: "37, rue Tanger - Hassan - Rabat",
-      phone: "06.66.36.36.31",
-      email: "groupe.scolaire@henrimoissan.net",
+      address: "12, avenue des Écoles",
+      phone: "06.00.00.00.00",
+      email: "contact@ecole-demo.fr",
     },
     create: {
-      name: "Henri Moissan",
+      name: "École Démo",
       slug: "ecole-demo",
-      address: "37, rue Tanger - Hassan - Rabat",
-      phone: "06.66.36.36.31",
-      email: "groupe.scolaire@henrimoissan.net",
+      address: "12, avenue des Écoles",
+      phone: "06.00.00.00.00",
+      email: "contact@ecole-demo.fr",
     },
   });
 

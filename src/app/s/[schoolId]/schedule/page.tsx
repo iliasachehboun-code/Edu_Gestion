@@ -16,6 +16,7 @@ import {
   deleteScheduleEntryAction,
 } from "@/app/actions/schedule";
 import { DAYS, dayLabel, fullName } from "@/lib/utils";
+import { ConfirmSubmit } from "@/components/confirm-submit";
 
 export default async function SchedulePage({
   params,
@@ -104,17 +105,17 @@ export default async function SchedulePage({
       {timeSlots.length === 0 ? (
         <EmptyState message="Aucun créneau horaire configuré." />
       ) : (
-        <div className="mb-8 overflow-x-auto rounded-xl border border-[#c9d7ee] bg-white">
+        <div className="mb-8 overflow-x-auto rounded-xl border border-line bg-white">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="bg-[#f4f8fc]">
-                <th className="border-b border-[#c9d7ee] px-3 py-2 text-left">
+              <tr className="bg-brand-soft">
+                <th className="border-b border-line px-3 py-2 text-left">
                   Créneau
                 </th>
                 {DAYS.map((d) => (
                   <th
                     key={d.value}
-                    className="border-b border-[#c9d7ee] px-3 py-2 text-left"
+                    className="border-b border-line px-3 py-2 text-left"
                   >
                     {d.label}
                   </th>
@@ -124,7 +125,7 @@ export default async function SchedulePage({
             <tbody>
               {timeSlots.map((slot) => (
                 <tr key={slot.id}>
-                  <td className="border-b border-[#e6eef8] px-3 py-2 font-medium text-[#3d5278]">
+                  <td className="border-b border-line px-3 py-2 font-medium text-muted">
                     {slot.label}
                   </td>
                   {DAYS.map((d) => {
@@ -135,15 +136,15 @@ export default async function SchedulePage({
                     return (
                       <td
                         key={d.value}
-                        className="border-b border-[#e6eef8] px-2 py-2 align-top"
+                        className="border-b border-line px-2 py-2 align-top"
                       >
                         {cell ? (
-                          <div className="rounded-lg bg-[#e5f8f3] p-2 text-xs text-[#002b5b]">
+                          <div className="rounded-lg bg-brand-soft p-2 text-xs text-brand">
                             <div className="font-semibold">
                               {cell.subject.name}
                             </div>
                             <div>{cell.class.name}</div>
-                            <div className="text-[#264c93]/80">
+                            <div className="text-brand/80">
                               {fullName(
                                 cell.teacher.firstName,
                                 cell.teacher.lastName
@@ -161,17 +162,12 @@ export default async function SchedulePage({
                                 }}
                                 className="mt-1"
                               >
-                                <button
-                                  type="submit"
-                                  className="text-red-600 hover:underline"
-                                >
-                                  Retirer
-                                </button>
+                                <ConfirmSubmit message="Confirmer ce retrait ?">Retirer</ConfirmSubmit>
                               </form>
                             ) : null}
                           </div>
                         ) : (
-                          <span className="text-[#8fe3cf]">—</span>
+                          <span className="text-line-strong">—</span>
                         )}
                       </td>
                     );
@@ -295,7 +291,7 @@ export default async function SchedulePage({
               </Button>
             </form>
             {rooms.length > 0 ? (
-              <ul className="mt-4 space-y-1 text-sm text-[#3d5278]">
+              <ul className="mt-4 space-y-1 text-sm text-muted">
                 {rooms.map((r) => (
                   <li key={r.id}>{r.name}</li>
                 ))}
@@ -304,7 +300,7 @@ export default async function SchedulePage({
           </Card>
         </div>
       ) : (
-        <p className="text-sm text-[#3d5278]">
+        <p className="text-sm text-muted">
           Vue enseignant — vos cours uniquement.
           {entries.length === 0
             ? " Aucun cours planifié."

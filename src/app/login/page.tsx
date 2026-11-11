@@ -1,6 +1,7 @@
-import Image from "next/image";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
+import { BrandLogo } from "@/components/brand-logo";
 import { Card } from "@/components/ui";
 import { LoginForm } from "@/components/login-form";
 
@@ -10,57 +11,58 @@ export default async function LoginPage() {
 
   return (
     <main className="grid min-h-screen lg:grid-cols-[1.05fr_0.95fr]">
-      <section className="relative flex flex-col justify-between overflow-hidden bg-[#002b5b] px-8 py-10 text-[#f3f7ff] sm:px-12">
+      <section className="relative flex flex-col justify-between overflow-hidden bg-brand px-6 py-8 text-sidebar-text sm:px-10 sm:py-10 lg:px-12">
         <div
           aria-hidden
-          className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-[#8fe3cf]/35"
+          className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-accent/30"
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute bottom-0 left-0 h-56 w-56 rounded-full bg-[#f0df07]/25"
+          className="pointer-events-none absolute bottom-0 left-0 h-56 w-56 rounded-full bg-sun/25"
         />
-        <div className="relative flex items-center gap-4">
-          <span className="rounded-2xl bg-white p-2 shadow-sm">
-            <Image
-              src="/henri-moissan.png"
-              alt="Logo du groupe scolaire Henri Moissan"
-              width={120}
-              height={73}
-              priority
-            />
-          </span>
-          <div>
-            <p className="font-[family-name:var(--font-fraunces)] text-2xl font-semibold">
-              Henri Moissan
+        <Link href="/" className="relative flex items-center gap-3 sm:gap-4">
+          <BrandLogo size="lg" priority />
+          <div className="min-w-0">
+            <p className="font-display text-xl font-semibold sm:text-2xl">
+              Edu Gestion
             </p>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8fe3cf]">
-              Groupe scolaire
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-sidebar-muted sm:text-xs">
+              Plateforme scolaire
             </p>
           </div>
-        </div>
-        <div className="relative max-w-md py-16">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#8fe3cf]">
-            Primaire, collège et lycée
+        </Link>
+        <div className="relative max-w-md py-10 sm:py-16">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sidebar-muted sm:text-sm">
+            Administration · pédagogie · familles
           </p>
-          <h1 className="mt-4 font-[family-name:var(--font-fraunces)] text-5xl font-semibold leading-tight">
+          <h1 className="mt-3 font-display text-3xl font-semibold leading-tight sm:mt-4 sm:text-5xl">
             L&apos;école, au quotidien.
           </h1>
-          <p className="mt-4 text-base text-[#d7e6fb]">
-            Élèves, cours, notes et familles dans le même espace, clair et vivant.
+          <p className="mt-3 text-sm leading-relaxed text-sidebar-text/85 sm:mt-4 sm:text-base">
+            Élèves, cours, notes et familles dans le même espace, clair et
+            vivant.
           </p>
         </div>
-        <p className="relative text-sm text-[#c5d8f2]">Rabat · Hassan</p>
+        <p className="relative text-sm text-sidebar-muted">
+          <Link href="/" className="hover:text-white">
+            ← Retour à l&apos;accueil
+          </Link>
+        </p>
       </section>
-      <section className="flex items-center justify-center px-4 py-12">
+
+      <section className="flex items-center justify-center px-4 py-10 sm:px-6 sm:py-12">
         <div className="w-full max-w-md">
-          <Card>
-            <h2 className="mb-4 font-[family-name:var(--font-fraunces)] text-2xl font-semibold text-[#0c2340]">
+          <Card className="p-6 sm:p-7">
+            <h2 className="mb-1 font-display text-2xl font-semibold text-foreground">
               Connexion
             </h2>
+            <p className="mb-5 text-sm text-muted">
+              Accédez à votre espace Edu Gestion.
+            </p>
             <LoginForm />
-            <div className="mt-6 rounded-xl bg-[#f4f8fc] p-3 text-xs text-[#3d5278]">
-              <p className="font-semibold text-[#002b5b]">Comptes démo</p>
-              <ul className="mt-2 space-y-1">
+            <div className="mt-6 rounded-xl border border-line bg-brand-soft/70 p-3 text-xs leading-relaxed text-muted">
+              <p className="font-semibold text-brand">Comptes démo</p>
+              <ul className="mt-2 space-y-1.5">
                 <li>SuperAdmin — admin@school.app / admin123</li>
                 <li>Directeur — directeur@ecole-demo.fr / demo123</li>
                 <li>Enseignant — prof@ecole-demo.fr / demo123</li>

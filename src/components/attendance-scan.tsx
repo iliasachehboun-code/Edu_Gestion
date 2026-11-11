@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveAttendanceAction } from "@/app/actions/attendance";
-import { Button, Card } from "@/components/ui";
+import { Badge, Button, Card, Select } from "@/components/ui";
 import {
   BOX,
   MARKER,
@@ -16,6 +16,7 @@ import {
 } from "@/lib/attendance-sheet";
 
 type StudentRow = { id: string; name: string };
+type PreviewRow = { id: string; name: string; mark: SheetMark };
 
 export function AttendanceScan({
   schoolId,
@@ -35,8 +36,11 @@ export function AttendanceScan({
   students: StudentRow[];
 }) {
   const router = useRouter();
-  const [status, setStatus] = useState<"idle" | "reading" | "done" | "error">("idle");
+  const [status, setStatus] = useState<
+    "idle" | "reading" | "preview" | "saving" | "done" | "error"
+  >("idle");
   const [message, setMessage] = useState("");
+  const [preview, setPreview] = useState<PreviewRow[]>([]);
 
   function printSheet() {
     const marks = markerRects();
@@ -51,12 +55,11 @@ export function AttendanceScan({
       .map((student, index) => {
         const present = boxes[index].present;
         const absent = boxes[index].absent;
-        const box = (point: { x: number; y: number }, label: string) =>
-          `<div style="position:absolute;left:${(point.x / SHEET_W) * 100}%;top:${(point.y / SHEET_H) * 100}%;width:${(BOX / SHEET_W) * 100}%;height:${(BOX / SHEET_H) * 100}%;border:2px solid #111;box-sizing:border-box"></div>
-           <div style="position:absolute;left:${((point.x + BOX + 6) / SHEET_W) * 100}%;top:${(point.y / SHEET_H) * 100}%;font-size:11px;line-height:${BOX}px">${label}</div>`;
+        const box = (point: { x: number; y: number }) =>
+          `<div style="position:absolute;left:${(point.x / SHEET_W) * 100}%;top:${(point.y / SHEET_H) * 100}%;width:${(BOX / SHEET_W) * 100}%;height:${(BOX / SHEET_H) * 100}%;border:2px solid #111;box-sizing:border-box"></div>`;
         return `<div style="position:absolute;left:7%;top:${(boxes[index].present.y / SHEET_H) * 100}%;font-size:13px;line-height:${BOX}px">${index + 1}. ${student.name}</div>
-          ${box(present, "")}
-          ${box(absent, "")}`;
+          ${box(present)}
+          ${box(absent)}`;
       })
       .join("");
 
@@ -99,6 +102,7 @@ export function AttendanceScan({
   async function onFile(file: File) {
     setStatus("reading");
     setMessage("Lecture de la fiche…");
+    setPreview([]);
     try {
       const image = await loadImage(file);
       const maxWidth = 900;
@@ -113,45 +117,76 @@ export function AttendanceScan({
       ctx.drawImage(image, 0, 0, width, height);
       const pixels = ctx.getImageData(0, 0, width, height).data;
       const marks = readSheetMarks(pixels, width, height, students.length);
-      await applyMarks(marks);
+      const rows = students.map((student, index) => ({
+        id: student.id,
+        name: student.name,
+        mark: marks[index] || "PRESENT",
+      }));
+      setPreview(rows);
+      setStatus("preview");
+      const absent = rows.filter((row) => row.mark === "ABSENT").length;
+      setMessage(
+        `Aperçu : ${rows.length - absent} présent(s), ${absent} absent(s). Corrigez si besoin, puis confirmez.`
+      );
     } catch {
       setStatus("error");
-      setMessage("La fiche n'a pas pu être lue. Utilisez la fiche imprimée depuis cette page, photo nette, à plat.");
+      setMessage(
+        "La fiche n'a pas pu être lue. Utilisez la fiche imprimée depuis cette page, photo nette, à plat."
+      );
     }
   }
 
-  async function applyMarks(marks: SheetMark[]) {
-    const formData = new FormData();
-    formData.set("classId", classId);
-    formData.set("date", dateStr);
-    students.forEach((student, index) => {
-      formData.append("studentId", student.id);
-      formData.set(`status_${student.id}`, marks[index]);
-      if (marks[index] === "ABSENT") {
-        formData.set(`reason_${student.id}`, "Fiche scannée");
-      }
-    });
-    await saveAttendanceAction(schoolId, formData);
-    const absent = marks.filter((mark) => mark === "ABSENT").length;
-    setStatus("done");
-    setMessage(
-      `Pointage enregistré : ${students.length - absent} présent(s), ${absent} absent(s).`
-    );
-    router.refresh();
+  async function confirmPreview() {
+    setStatus("saving");
+    setMessage("Enregistrement du pointage…");
+    try {
+      const formData = new FormData();
+      formData.set("classId", classId);
+      formData.set("date", dateStr);
+      preview.forEach((row) => {
+        formData.append("studentId", row.id);
+        formData.set(`status_${row.id}`, row.mark);
+        if (row.mark === "ABSENT") {
+          formData.set(`reason_${row.id}`, "Fiche scannée");
+        }
+      });
+      await saveAttendanceAction(schoolId, formData);
+      const absent = preview.filter((row) => row.mark === "ABSENT").length;
+      setStatus("done");
+      setMessage(
+        `Pointage enregistré : ${preview.length - absent} présent(s), ${absent} absent(s).`
+      );
+      setPreview([]);
+      router.refresh();
+    } catch {
+      setStatus("error");
+      setMessage("L'enregistrement a échoué. Réessayez.");
+    }
   }
+
+  function updateMark(id: string, mark: SheetMark) {
+    setPreview((rows) =>
+      rows.map((row) => (row.id === id ? { ...row, mark } : row))
+    );
+  }
+
+  const absentCount = preview.filter((row) => row.mark === "ABSENT").length;
 
   return (
     <Card className="mt-8">
-      <h2 className="text-lg font-semibold">Scanner une fiche de présence</h2>
-      <p className="mt-1 text-sm text-[#3d5278]">
-        Imprimez la fiche de {className}, cochez P ou A pour chaque élève, puis
-        insérez la photo ou le scan. Le pointage du {dateLabel} se remplit tout seul.
+      <h2 className="font-display text-lg font-semibold">
+        Ou scanner une fiche papier
+      </h2>
+      <p className="mt-1 text-sm text-muted">
+        Alternative à l&apos;appel en ligne : imprimez la fiche de {className},
+        cochez P ou A, puis insérez la photo. Vérifiez l&apos;aperçu avant
+        d&apos;enregistrer le {dateLabel}.
       </p>
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <Button type="button" variant="secondary" onClick={printSheet}>
           Imprimer la fiche
         </Button>
-        <label className="inline-flex cursor-pointer items-center rounded-xl bg-[#002b5b] px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#264c93]">
+        <label className="inline-flex min-h-10 cursor-pointer items-center rounded-xl bg-brand px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-deep">
           Insérer la fiche scannée
           <input
             type="file"
@@ -166,14 +201,60 @@ export function AttendanceScan({
           />
         </label>
       </div>
+
       {message ? (
         <p
           className={`mt-4 text-sm ${
-            status === "error" ? "text-red-700" : "text-[#264c93]"
+            status === "error" ? "text-danger" : "text-brand"
           }`}
         >
           {message}
         </p>
+      ) : null}
+
+      {status === "preview" && preview.length > 0 ? (
+        <div className="mt-5 space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone="success">{preview.length - absentCount} présents</Badge>
+            <Badge tone="danger">{absentCount} absents</Badge>
+          </div>
+          <div className="max-h-[28rem] space-y-2 overflow-y-auto rounded-2xl border border-line bg-brand-soft/40 p-3">
+            {preview.map((row) => (
+              <div
+                key={row.id}
+                className="grid gap-2 rounded-xl border border-line bg-surface p-3 sm:grid-cols-[1fr_140px] sm:items-center"
+              >
+                <p className="text-sm font-medium text-foreground">{row.name}</p>
+                <Select
+                  value={row.mark}
+                  onChange={(event) =>
+                    updateMark(row.id, event.target.value as SheetMark)
+                  }
+                  aria-label={`Statut ${row.name}`}
+                >
+                  <option value="PRESENT">Présent</option>
+                  <option value="ABSENT">Absent</option>
+                </Select>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setPreview([]);
+                setStatus("idle");
+                setMessage("");
+              }}
+            >
+              Annuler
+            </Button>
+            <Button type="button" onClick={() => void confirmPreview()}>
+              Confirmer le pointage
+            </Button>
+          </div>
+        </div>
       ) : null}
     </Card>
   );

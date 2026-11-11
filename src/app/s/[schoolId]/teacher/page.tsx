@@ -38,21 +38,21 @@ export default async function TeacherDashboard({
 
       <div className="mb-8 grid gap-4 sm:grid-cols-3">
         <Link href={`/s/${schoolId}/grades`}>
-          <Card className="border-l-4 border-l-[#002b5b] transition hover:-translate-y-0.5 hover:shadow-md">
-            <p className="text-sm text-[#3d5278]">Notes</p>
-            <p className="mt-1 font-semibold text-[#002b5b]">Saisir des notes</p>
+          <Card className="border-l-4 border-l-brand transition hover:-translate-y-0.5 hover:shadow-md">
+            <p className="text-sm text-muted">Notes</p>
+            <p className="mt-1 font-semibold text-brand">Saisir des notes</p>
           </Card>
         </Link>
         <Link href={`/s/${schoolId}/attendance`}>
-          <Card className="border-l-4 border-l-[#e2c200] transition hover:-translate-y-0.5 hover:shadow-md">
-            <p className="text-sm text-[#3d5278]">Présences</p>
-            <p className="mt-1 font-semibold text-[#002b5b]">Faire l&apos;appel</p>
+          <Card className="border-l-4 border-l-sun transition hover:-translate-y-0.5 hover:shadow-md">
+            <p className="text-sm text-muted">Présences</p>
+            <p className="mt-1 font-semibold text-brand">Faire l&apos;appel</p>
           </Card>
         </Link>
         <Link href={`/s/${schoolId}/schedule`}>
-          <Card className="border-l-4 border-l-[#264c93] transition hover:-translate-y-0.5 hover:shadow-md">
-            <p className="text-sm text-[#3d5278]">Planning</p>
-            <p className="mt-1 font-semibold text-[#002b5b]">Mon emploi du temps</p>
+          <Card className="border-l-4 border-l-sky transition hover:-translate-y-0.5 hover:shadow-md">
+            <p className="text-sm text-muted">Planning</p>
+            <p className="mt-1 font-semibold text-brand">Mon emploi du temps</p>
           </Card>
         </Link>
       </div>
@@ -61,13 +61,13 @@ export default async function TeacherDashboard({
         <Card>
           <h2 className="mb-3 font-semibold">Mes classes</h2>
           {teacher.assignments.length === 0 ? (
-            <p className="text-sm text-[#3d5278]">Aucune affectation.</p>
+            <p className="text-sm text-muted">Aucune affectation.</p>
           ) : (
             <ul className="space-y-2 text-sm">
               {teacher.assignments.map((a) => (
                 <li
                   key={a.id}
-                  className="rounded-lg bg-[#f4f8fc] px-3 py-2"
+                  className="rounded-lg bg-brand-soft px-3 py-2"
                 >
                   {a.subject.name} — {a.class.name}
                 </li>
@@ -78,13 +78,13 @@ export default async function TeacherDashboard({
         <Card>
           <h2 className="mb-3 font-semibold">Cours de la semaine</h2>
           {teacher.scheduleEntries.length === 0 ? (
-            <p className="text-sm text-[#3d5278]">Aucun cours planifié.</p>
+            <p className="text-sm text-muted">Aucun cours planifié.</p>
           ) : (
             <ul className="space-y-2 text-sm">
               {teacher.scheduleEntries.map((e) => (
                 <li
                   key={e.id}
-                  className="rounded-lg bg-[#e5f8f3] px-3 py-2 text-[#002b5b]"
+                  className="rounded-lg bg-brand-soft px-3 py-2 text-brand"
                 >
                   {DAYS.find((d) => d.value === e.dayOfWeek)?.label}{" "}
                   {e.timeSlot.label} — {e.subject.name} ({e.class.name})

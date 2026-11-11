@@ -2,7 +2,6 @@ import { requireSchoolAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   Badge,
-  Button,
   Card,
   Field,
   Input,
@@ -13,9 +12,15 @@ import {
   Th,
   EmptyState,
 } from "@/components/ui";
-import { saveAttendanceAction } from "@/app/actions/attendance";
+import { AttendanceLive } from "@/components/attendance-live";
 import { AttendanceScan } from "@/components/attendance-scan";
+import { AutoFilterForm } from "@/components/auto-filter-form";
+import { schoolTrail } from "@/components/breadcrumbs";
+import { ExportMenu } from "@/components/export-menu";
+import { GuidedEmpty } from "@/components/guided-empty";
+import { buildQuery } from "@/lib/list-query";
 import { formatDate, fullName } from "@/lib/utils";
+import type { AttendanceStatus } from "@prisma/client";
 
 export default async function AttendancePage({
   params,
@@ -69,82 +74,119 @@ export default async function AttendancePage({
     take: 20,
   });
 
+  const selectedClass = classes.find((c) => c.id === classId);
+  const exportQs = buildQuery(
+    {},
+    {
+      classId: classId || undefined,
+      date: dateStr || undefined,
+    }
+  );
+
   return (
     <div>
       <PageHeader
         title="Présences et absences"
         description="Pointage quotidien par classe."
+        breadcrumbs={schoolTrail(
+          schoolId,
+          { label: "Présences", path: "/attendance" },
+          selectedClass?.name
+        )}
+        actions={
+          classId ? (
+            <ExportMenu
+              csvHref={`/s/${schoolId}/export/attendance${exportQs}`}
+              pdfHref={`/s/${schoolId}/export/attendance/print${exportQs}`}
+            />
+          ) : undefined
+        }
       />
 
-      <Card className="mb-6">
-        <form method="get" className="grid gap-3 md:grid-cols-3">
-          <Field label="Classe">
-            <Select name="classId" defaultValue={classId}>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Date">
-            <Input name="date" type="date" defaultValue={dateStr} />
-          </Field>
-          <div className="flex items-end">
-            <Button type="submit" variant="secondary" className="w-full">
-              Afficher
-            </Button>
-          </div>
-        </form>
-      </Card>
-
-      <div className="grid gap-8 xl:grid-cols-[1.3fr_0.7fr]">
-        <Card>
-          <h2 className="mb-4 font-semibold">
-            Pointage — {formatDate(date)}
-          </h2>
-          {students.length === 0 ? (
-            <EmptyState message="Aucun élève dans cette classe." />
-          ) : (
-            <form action={saveAttendanceAction.bind(null, schoolId)}>
-              <input type="hidden" name="classId" value={classId} />
-              <input type="hidden" name="date" value={dateStr} />
-              <div className="space-y-3">
-                {students.map((s) => {
-                  const current = byStudent.get(s.id);
-                  return (
-                    <div
-                      key={s.id}
-                      className="grid gap-2 rounded-lg border border-[#e6eef8] p-3 md:grid-cols-[1fr_160px_1fr]"
-                    >
-                      <input type="hidden" name="studentId" value={s.id} />
-                      <div className="font-medium">
-                        {fullName(s.firstName, s.lastName)}
-                      </div>
-                      <Select
-                        name={`status_${s.id}`}
-                        defaultValue={current?.status || "PRESENT"}
-                      >
-                        <option value="PRESENT">Présent</option>
-                        <option value="ABSENT">Absent</option>
-                        <option value="LATE">Retard</option>
-                        <option value="EXCUSED">Excusé</option>
-                      </Select>
-                      <Input
-                        name={`reason_${s.id}`}
-                        placeholder="Motif"
-                        defaultValue={current?.reason || ""}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-              <Button type="submit" className="mt-4">
-                Enregistrer le pointage
-              </Button>
-            </form>
-          )}
+      {!year ? (
+        <div className="mb-6">
+          <GuidedEmpty
+            message="Aucune année scolaire courante. Configurez-en une pour pointer les présences."
+            actionHref={`/s/${schoolId}/years`}
+            actionLabel="Configurer l'année"
+          />
+        </div>
+      ) : classes.length === 0 ? (
+        <div className="mb-6">
+          <GuidedEmpty
+            message="Aucune classe disponible. Créez une classe puis inscrivez des élèves."
+            actionHref={`/s/${schoolId}/classes`}
+            actionLabel="Créer une classe"
+          />
+        </div>
+      ) : (
+        <Card className="mb-6">
+          <AutoFilterForm className="grid gap-3 sm:grid-cols-2">
+            <Field label="Classe">
+              <Select name="classId" defaultValue={classId}>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Date">
+              <Input name="date" type="date" defaultValue={dateStr} />
+            </Field>
+          </AutoFilterForm>
         </Card>
+      )}
+
+      <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr] xl:gap-8">
+        <div className="min-w-0 space-y-6">
+          {!year || classes.length === 0 ? (
+            <Card>
+              <EmptyState message="Sélectionnez une année et une classe pour commencer." />
+            </Card>
+          ) : students.length === 0 ? (
+            <Card>
+              <GuidedEmpty
+                message="Aucun élève inscrit dans cette classe pour l'année courante."
+                actionHref={`/s/${schoolId}/students`}
+                actionLabel="Gérer les élèves"
+              />
+            </Card>
+          ) : (
+            <>
+              <AttendanceLive
+                key={`live-${classId}-${dateStr}`}
+                schoolId={schoolId}
+                classId={classId!}
+                className={selectedClass?.name || "Classe"}
+                dateStr={dateStr}
+                dateLabel={formatDate(date)}
+                students={students.map((s) => {
+                  const current = byStudent.get(s.id);
+                  return {
+                    id: s.id,
+                    name: fullName(s.firstName, s.lastName),
+                    status: (current?.status || "PRESENT") as AttendanceStatus,
+                    reason: current?.reason || "",
+                  };
+                })}
+              />
+              <AttendanceScan
+                key={`scan-${classId}-${dateStr}`}
+                schoolId={schoolId}
+                schoolName={school.name}
+                classId={classId!}
+                className={selectedClass?.name || "Classe"}
+                dateStr={dateStr}
+                dateLabel={formatDate(date)}
+                students={students.map((s) => ({
+                  id: s.id,
+                  name: fullName(s.firstName, s.lastName),
+                }))}
+              />
+            </>
+          )}
+        </div>
 
         <div>
           <h2 className="mb-3 font-semibold">Historique récent</h2>
@@ -165,7 +207,7 @@ export default async function AttendancePage({
                     <Td>{formatDate(a.date)}</Td>
                     <Td>
                       {fullName(a.student.firstName, a.student.lastName)}
-                      <div className="text-xs text-[#3d5278]">
+                      <div className="text-xs text-muted">
                         {a.class.name}
                       </div>
                     </Td>
@@ -189,21 +231,6 @@ export default async function AttendancePage({
           )}
         </div>
       </div>
-
-      {classId && students.length > 0 ? (
-        <AttendanceScan
-          schoolId={schoolId}
-          schoolName={school.name}
-          classId={classId}
-          className={classes.find((c) => c.id === classId)?.name || "Classe"}
-          dateStr={dateStr}
-          dateLabel={formatDate(date)}
-          students={students.map((s) => ({
-            id: s.id,
-            name: fullName(s.firstName, s.lastName),
-          }))}
-        />
-      ) : null}
     </div>
   );
 }

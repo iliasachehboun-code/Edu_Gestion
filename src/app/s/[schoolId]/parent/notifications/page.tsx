@@ -74,7 +74,7 @@ export default async function ParentNotificationsPage({
                     >
                       <button
                         type="submit"
-                        className="text-sm font-medium text-[#264c93] hover:underline"
+                        className="text-sm font-medium text-brand hover:underline"
                       >
                         Marquer lu
                       </button>

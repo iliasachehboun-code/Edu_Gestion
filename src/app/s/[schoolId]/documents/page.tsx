@@ -18,6 +18,7 @@ import {
   deleteDocumentAction,
 } from "@/app/actions/admin";
 import { formatDate } from "@/lib/utils";
+import { ConfirmSubmit } from "@/components/confirm-submit";
 
 export default async function DocumentsPage({
   params,
@@ -43,7 +44,7 @@ export default async function DocumentsPage({
         actions={
           <Link
             href={`/s/${schoolId}/bulletins`}
-            className="text-sm font-medium text-[#264c93] hover:underline"
+            className="text-sm font-medium text-brand hover:underline"
           >
             {bulletins} bulletin(s)
           </Link>
@@ -68,7 +69,7 @@ export default async function DocumentsPage({
                   <Td>
                     <div className="font-medium">{d.title}</div>
                     {d.note ? (
-                      <div className="text-xs text-[#3d5278]">{d.note}</div>
+                      <div className="text-xs text-muted">{d.note}</div>
                     ) : null}
                   </Td>
                   <Td>{d.category}</Td>
@@ -80,12 +81,7 @@ export default async function DocumentsPage({
                         await deleteDocumentAction(schoolId, d.id);
                       }}
                     >
-                      <button
-                        type="submit"
-                        className="text-sm text-red-600 hover:underline"
-                      >
-                        Supprimer
-                      </button>
+                      <ConfirmSubmit message="Confirmer cette suppression ?">Supprimer</ConfirmSubmit>
                     </form>
                   </Td>
                 </tr>

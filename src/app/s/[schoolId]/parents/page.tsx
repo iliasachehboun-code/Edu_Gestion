@@ -69,7 +69,7 @@ export default async function ParentsPage({
                     </Td>
                     <Td>
                       <div>{p.email || "—"}</div>
-                      <div className="text-xs text-[#3d5278]">
+                      <div className="text-xs text-muted">
                         {p.phone || ""}
                       </div>
                     </Td>

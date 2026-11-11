@@ -1,7 +1,9 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { getSessionUser, requireSchoolAccess } from "@/lib/auth";
 import { SchoolNav, type NavSection } from "@/components/school-nav";
+import { FlashToast } from "@/components/flash-toast";
 import { prisma } from "@/lib/prisma";
 
 export default async function SchoolLayout({
@@ -109,7 +111,7 @@ export default async function SchoolLayout({
         : "Parent";
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen flex-col lg:flex-row">
       <SchoolNav
         schoolId={schoolId}
         schoolName={access.school.name}
@@ -118,7 +120,14 @@ export default async function SchoolLayout({
         items={items}
         sections={sections}
       />
-      <main className="min-w-0 flex-1 overflow-auto px-6 py-8 lg:px-10">{children}</main>
+      <main className="min-w-0 flex-1 overflow-auto px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
+        <div className="mx-auto w-full max-w-7xl">
+          <Suspense fallback={null}>
+            <FlashToast />
+          </Suspense>
+          {children}
+        </div>
+      </main>
     </div>
   );
 }

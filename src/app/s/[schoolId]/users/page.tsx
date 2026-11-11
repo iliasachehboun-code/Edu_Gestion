@@ -14,6 +14,7 @@ import {
   Th,
 } from "@/components/ui";
 import { inviteUserAction, removeMembershipAction } from "@/app/actions/admin";
+import { ConfirmSubmit } from "@/components/confirm-submit";
 
 const roleLabel: Record<string, string> = {
   SCHOOL_ADMIN: "Administrateur",
@@ -82,12 +83,7 @@ export default async function UsersPage({
                           await removeMembershipAction(schoolId, m.id);
                         }}
                       >
-                        <button
-                          type="submit"
-                          className="text-sm text-red-600 hover:underline"
-                        >
-                          Retirer
-                        </button>
+                        <ConfirmSubmit message="Confirmer ce retrait ?">Retirer</ConfirmSubmit>
                       </form>
                     ) : null}
                   </Td>

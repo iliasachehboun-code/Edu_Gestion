@@ -16,7 +16,10 @@ export function LoginForm() {
   return (
     <form action={formAction} className="space-y-4">
       {state?.error ? (
-        <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div
+          role="alert"
+          className="rounded-xl border border-danger/20 bg-danger-soft px-3 py-2 text-sm text-danger"
+        >
           {state.error}
         </div>
       ) : null}
@@ -25,6 +28,7 @@ export function LoginForm() {
           name="email"
           type="email"
           required
+          autoComplete="email"
           placeholder="vous@ecole.fr"
           defaultValue="directeur@ecole-demo.fr"
         />
@@ -34,6 +38,7 @@ export function LoginForm() {
           name="password"
           type="password"
           required
+          autoComplete="current-password"
           defaultValue="demo123"
         />
       </Field>

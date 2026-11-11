@@ -15,6 +15,7 @@ import {
 } from "@/components/ui";
 import { createGradeAction, deleteGradeAction } from "@/app/actions/grades";
 import { fullName } from "@/lib/utils";
+import { ConfirmSubmit } from "@/components/confirm-submit";
 
 export default async function HomeworkPage({
   params,
@@ -51,7 +52,7 @@ export default async function HomeworkPage({
         actions={
           <Link
             href={`/s/${schoolId}/grades`}
-            className="text-sm font-medium text-[#264c93] hover:underline"
+            className="text-sm font-medium text-brand hover:underline"
           >
             Voir les examens
           </Link>
@@ -87,12 +88,7 @@ export default async function HomeworkPage({
                         await deleteGradeAction(schoolId, g.id);
                       }}
                     >
-                      <button
-                        type="submit"
-                        className="text-sm text-red-600 hover:underline"
-                      >
-                        Supprimer
-                      </button>
+                      <ConfirmSubmit message="Confirmer cette suppression ?">Supprimer</ConfirmSubmit>
                     </form>
                   </Td>
                 </tr>

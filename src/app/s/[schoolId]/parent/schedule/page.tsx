@@ -56,7 +56,7 @@ export default async function ParentSchedulePage({
                   <h2 className="font-semibold">
                     {fullName(student.firstName, student.lastName)}
                   </h2>
-                  <p className="mt-2 text-sm text-[#3d5278]">Non inscrit.</p>
+                  <p className="mt-2 text-sm text-muted">Non inscrit.</p>
                 </Card>
               );
             }
@@ -80,10 +80,10 @@ export default async function ParentSchedulePage({
                 {timeSlots.length === 0 ? (
                   <EmptyState message="Pas de créneaux." />
                 ) : (
-                  <div className="overflow-x-auto rounded-xl border border-[#c9d7ee] bg-white">
+                  <div className="overflow-x-auto rounded-xl border border-line bg-white">
                     <table className="min-w-full text-sm">
                       <thead>
-                        <tr className="bg-[#f4f8fc]">
+                        <tr className="bg-brand-soft">
                           <th className="px-3 py-2 text-left">Créneau</th>
                           {DAYS.map((d) => (
                             <th key={d.value} className="px-3 py-2 text-left">
@@ -94,8 +94,8 @@ export default async function ParentSchedulePage({
                       </thead>
                       <tbody>
                         {timeSlots.map((slot) => (
-                          <tr key={slot.id} className="border-t border-[#e6eef8]">
-                            <td className="px-3 py-2 text-[#3d5278]">
+                          <tr key={slot.id} className="border-t border-line">
+                            <td className="px-3 py-2 text-muted">
                               {slot.label}
                             </td>
                             {DAYS.map((d) => {
@@ -107,7 +107,7 @@ export default async function ParentSchedulePage({
                               return (
                                 <td key={d.value} className="px-2 py-2">
                                   {cell ? (
-                                    <div className="rounded-lg bg-[#e5f8f3] p-2 text-xs">
+                                    <div className="rounded-lg bg-brand-soft p-2 text-xs">
                                       <div className="font-semibold">
                                         {cell.subject.name}
                                       </div>

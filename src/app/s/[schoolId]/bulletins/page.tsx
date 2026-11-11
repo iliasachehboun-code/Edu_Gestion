@@ -17,6 +17,8 @@ import {
   generateBulletinAction,
   publishBulletinAction,
 } from "@/app/actions/grades";
+import { schoolTrail } from "@/components/breadcrumbs";
+import { GuidedEmpty } from "@/components/guided-empty";
 import { fullName } from "@/lib/utils";
 
 export default async function BulletinsPage({
@@ -50,6 +52,10 @@ export default async function BulletinsPage({
       <PageHeader
         title="Bulletins"
         description="Génération et publication des bulletins trimestriels."
+        breadcrumbs={schoolTrail(schoolId, {
+          label: "Bulletins",
+          path: "/bulletins",
+        })}
       />
 
       <div className="grid gap-8 xl:grid-cols-[1.2fr_0.8fr]">
@@ -86,7 +92,7 @@ export default async function BulletinsPage({
                       <div className="flex gap-3">
                         <Link
                           href={`/s/${schoolId}/bulletins/${r.id}`}
-                          className="text-sm font-medium text-[#264c93] hover:underline"
+                          className="text-sm font-medium text-brand hover:underline"
                         >
                           Voir
                         </Link>
@@ -99,7 +105,7 @@ export default async function BulletinsPage({
                           >
                             <button
                               type="submit"
-                              className="text-sm text-[#1a3d6e] hover:underline"
+                              className="text-sm text-brand hover:underline"
                             >
                               Publier
                             </button>
@@ -117,7 +123,11 @@ export default async function BulletinsPage({
         <Card>
           <h2 className="mb-4 text-lg font-semibold">Générer un bulletin</h2>
           {!year ? (
-            <p className="text-sm text-[#3d5278]">Aucune année courante.</p>
+            <GuidedEmpty
+              message="Aucune année scolaire courante."
+              actionHref={`/s/${schoolId}/years`}
+              actionLabel="Configurer l'année"
+            />
           ) : (
             <form
               action={generateBulletinAction.bind(null, schoolId)}

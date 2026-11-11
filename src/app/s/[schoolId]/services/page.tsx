@@ -18,6 +18,7 @@ import {
   deleteCampusServiceAction,
 } from "@/app/actions/admin";
 import { formatMoney } from "@/lib/utils";
+import { ConfirmSubmit } from "@/components/confirm-submit";
 
 export default async function ServicesPage({
   params,
@@ -70,12 +71,7 @@ export default async function ServicesPage({
                         await deleteCampusServiceAction(schoolId, s.id);
                       }}
                     >
-                      <button
-                        type="submit"
-                        className="text-sm text-red-600 hover:underline"
-                      >
-                        Supprimer
-                      </button>
+                      <ConfirmSubmit message="Confirmer cette suppression ?">Supprimer</ConfirmSubmit>
                     </form>
                   </Td>
                 </tr>
