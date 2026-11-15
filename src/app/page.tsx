@@ -21,5 +21,6 @@ export default async function HomePage() {
 
   if (membership.role === "PARENT") redirect(`/s/${membership.schoolId}/parent`);
   if (membership.role === "TEACHER") redirect(`/s/${membership.schoolId}/teacher`);
+  if (membership.role === "STUDENT") redirect(`/s/${membership.schoolId}/student`);
   redirect(`/s/${membership.schoolId}`);
 }

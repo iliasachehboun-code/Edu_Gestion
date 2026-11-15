@@ -16,6 +16,7 @@ enum SchoolRole {
   SCHOOL_ADMIN
   TEACHER
   PARENT
+  STUDENT
 }
 
 enum GradeType {
@@ -61,6 +62,7 @@ model User {
   sessions         Session[]
   teacherProfile   Teacher?
   parentProfile    Parent?
+  studentProfile   Student?
   notifications    Notification[]
   createdGrades    Grade[]        @relation("GradeCreatedBy")
 }
@@ -108,6 +110,11 @@ model School {
   documents         Document[]
   libraryItems      LibraryItem[]
   campusServices    CampusService[]
+  administrativeRequests AdministrativeRequest[]
+  auditLogs         AuditLog[]
+  evaluations       Evaluation[]
+  homeworks         Homework[]
+  courseMaterials   CourseMaterial[]
 }
 
 model Membership {
@@ -152,6 +159,7 @@ model Term {
   academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
   grades       Grade[]
   reportCards  ReportCard[]
+  evaluations  Evaluation[]
 
   @@unique([academicYearId, order])
 }
@@ -169,6 +177,9 @@ model Class {
   teacherAssignments TeacherAssignment[]
   scheduleEntries    ScheduleEntry[]
   attendances        Attendance[]
+  evaluations        Evaluation[]
+  homeworks          Homework[]
+  courseMaterials    CourseMaterial[]
 
   @@unique([schoolId, name])
 }
@@ -186,6 +197,10 @@ model Subject {
   grades             Grade[]
   scheduleEntries    ScheduleEntry[]
   reportCardLines    ReportCardLine[]
+  attendances        Attendance[]
+  evaluations        Evaluation[]
+  homeworks          Homework[]
+  courseMaterials    CourseMaterial[]
 
   @@unique([schoolId, name])
 }
@@ -193,6 +208,7 @@ model Subject {
 model Student {
   id          String   @id @default(cuid())
   schoolId    String
+  userId      String?  @unique
   firstName   String
   lastName    String
   dateOfBirth DateTime?
@@ -206,12 +222,15 @@ model Student {
   updatedAt   DateTime @updatedAt
 
   school       School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
   enrollments  Enrollment[]
   grades       Grade[]
   reportCards  ReportCard[]
   attendances  Attendance[]
   studentFees  StudentFee[]
   parentLinks  ParentStudent[]
+  administrativeRequests AdministrativeRequest[]
+  homeworkSubmissions    HomeworkSubmission[]
 
   @@unique([schoolId, matricule])
 }
@@ -234,6 +253,8 @@ model Teacher {
   assignments        TeacherAssignment[]
   scheduleEntries    ScheduleEntry[]
   attendances        Attendance[]
+  homeworks          Homework[]
+  courseMaterials    CourseMaterial[]
 }
 
 model Parent {
@@ -315,6 +336,9 @@ model Grade {
   subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   term      Term    @relation(fields: [termId], references: [id], onDelete: Cascade)
   createdBy User?   @relation("GradeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([schoolId, studentId])
+  @@index([studentId])
 }
 
 model ReportCard {
@@ -406,18 +430,29 @@ model Attendance {
   studentId  String
   classId    String
   teacherId  String?
+  subjectId  String?
+  time       String?
   date       DateTime
   status     AttendanceStatus @default(PRESENT)
-  reason     String?
-  justified  Boolean          @default(false)
-  createdAt  DateTime         @default(now())
+  reason               String?
+  justified            Boolean          @default(false)
+  justificationStatus  String           @default("NON_JUSTIFIE")
+  justificationFile    String?
+  justificationType    String?
+  justificationComment String?
+  rejectionReason      String?
+  reviewedAt           DateTime?
+  reviewedById         String?
+  createdAt            DateTime         @default(now())
 
   school  School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   student Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   class   Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
   teacher Teacher? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  subject Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
 
   @@unique([studentId, date, classId])
+  @@index([schoolId, studentId])
 }
 
 model FeeType {
@@ -479,6 +514,8 @@ model Notification {
 
   school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, userId, read])
 }
 
 model Document {
@@ -515,3 +552,141 @@ model CampusService {
 
   school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
 }
+
+model AdministrativeRequest {
+  id             String   @id @default(cuid())
+  schoolId       String
+  studentId      String
+  type           String
+  title          String
+  description    String?
+  status         String   @default("EN_ATTENTE")
+  responseNote   String?
+  documentUrl    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, studentId])
+  @@index([schoolId, status])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  schoolId     String
+  userId       String?
+  userName     String?
+  userRole     String?
+  action       String
+  resourceType String
+  resourceId   String?
+  details      String?
+  ipAddress    String?
+  createdAt    DateTime @default(now())
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, action])
+  @@index([schoolId, userId])
+  @@index([schoolId, createdAt])
+}
+
+model Evaluation {
+  id           String    @id @default(cuid())
+  schoolId     String
+  classId      String
+  subjectId    String
+  termId       String?
+  title        String
+  type         String    @default("CONTROLE") // CONTROLE, DEVOIR_SUR_TABLE, EXAMEN_BLANC, TP, INTERROGATION
+  date         DateTime
+  startTime    String?   // Ex: "09:00"
+  durationMin  Int       @default(60) // Durée en minutes (ex: 60, 120)
+  coefficient  Float     @default(1)
+  room         String?   // Ex: "Salle 102"
+  instructions String?   // Ex: "Calculatrice collège autorisée. Prévoir feuilles doubles."
+  topics       String?   // Programme / Chapitres révisés (ex: "Chapitre 3 : Théorème de Pythagore")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  term    Term?   @relation(fields: [termId], references: [id], onDelete: SetNull)
+
+  @@index([schoolId, classId])
+  @@index([schoolId, date])
+}
+
+model CourseMaterial {
+  id          String   @id @default(cuid())
+  schoolId    String
+  classId     String
+  subjectId   String
+  teacherId   String?
+  title       String
+  description String?
+  chapter     String?
+  fileUrl     String?
+  fileName    String?
+  fileSize    String?
+  fileType    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  school  School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  class   Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subject Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher Teacher? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+
+  @@index([schoolId, classId])
+  @@index([schoolId, subjectId])
+}
+
+model Homework {
+  id          String   @id @default(cuid())
+  schoolId    String
+  classId     String
+  subjectId   String
+  teacherId   String?
+  title       String
+  description String?
+  dueDate     DateTime
+  fileUrl     String?
+  fileName    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  school      School               @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  class       Class                @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subject     Subject              @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher     Teacher?             @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  submissions HomeworkSubmission[]
+
+  @@index([schoolId, classId])
+  @@index([schoolId, dueDate])
+}
+
+model HomeworkSubmission {
+  id          String   @id @default(cuid())
+  homeworkId  String
+  studentId   String
+  comment     String?
+  fileUrl     String?
+  fileName    String?
+  fileSize    String?
+  submittedAt DateTime @default(now())
+  status      String   @default("RENDU") // RENDU, CORRIGE
+
+  homework Homework @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  student  Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([homeworkId, studentId])
+  @@index([homeworkId])
+  @@index([studentId])
+}
+
+
+

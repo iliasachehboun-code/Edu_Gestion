@@ -108,11 +108,11 @@ export default async function StudentsPage({
   return (
     <div>
       <PageHeader
-        title="Étudiants"
-        description="Dossiers des étudiants de l'établissement."
+        title="Élèves"
+        description="Dossiers des élèves de l'établissement."
         breadcrumbs={schoolTrail(
           schoolId,
-          { label: "Étudiants", path: "/students" },
+          { label: "Élèves", path: "/students" },
           selectedClass?.name
         )}
         actions={
@@ -167,8 +167,8 @@ export default async function StudentsPage({
           <input type="hidden" name="dir" value={dir} />
         </AutoFilterForm>
       </Card>
-      <p className="mb-3 text-sm text-muted">
-        {total} étudiant{total > 1 ? "s" : ""}
+      <p className="mb-3 text-sm text-[#3d5278]">
+        {total} élève{total > 1 ? "s" : ""}
         {q || classId ? " pour ce filtre" : ""}
       </p>
       <div className="grid gap-6 xl:grid-cols-[1.4fr_0.8fr] xl:gap-8">
@@ -258,6 +258,9 @@ export default async function StudentsPage({
             </div>
             <Field label="Matricule">
               <Input name="matricule" />
+            </Field>
+            <Field label="Email (pour connexion à l'espace élève)">
+              <Input name="email" type="email" placeholder="eleve@ecole.fr" />
             </Field>
             <Field label="Date de naissance">
               <Input name="dateOfBirth" type="date" />

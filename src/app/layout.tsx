@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { DM_Sans, Fraunces } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
@@ -13,11 +13,24 @@ const fraunces = Fraunces({
   subsets: ["latin"],
 });
 
+export const viewport: Viewport = {
+  themeColor: "#002b5b",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
+
 export const metadata: Metadata = {
   title: "Edu Gestion — Plateforme scolaire",
   description:
     "Edu Gestion : pilotez élèves, absences, notes, familles et finances dans une seule plateforme.",
   icons: { icon: "/edu-gestion-mark.svg" },
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "EduGestion",
+  },
 };
 
 export default function RootLayout({

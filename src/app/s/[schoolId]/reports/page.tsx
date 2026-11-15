@@ -43,7 +43,7 @@ export default async function ReportsPage({
     {
       title: "Effectifs",
       items: [
-        { label: "Étudiants actifs", value: students, href: "students" },
+        { label: "Élèves actifs", value: students, href: "students" },
         { label: "Enseignants", value: teachers, href: "teachers" },
         { label: "Classes", value: classes, href: "classes" },
         { label: "Matières", value: subjects, href: "subjects" },

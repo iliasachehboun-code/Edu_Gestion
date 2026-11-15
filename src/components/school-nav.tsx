@@ -7,6 +7,7 @@ import { BrandLogo } from "@/components/brand-logo";
 import { CompactModeToggle } from "@/components/compact-mode";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/app/actions/auth";
+import { NotificationBell, type NotificationData } from "@/components/notification-bell";
 
 export type NavItem = { href: string; label: string };
 export type NavSection = { title: string; items: NavItem[] };
@@ -17,6 +18,7 @@ function isActive(pathname: string, href: string, schoolId: string) {
     `/s/${schoolId}`,
     `/s/${schoolId}/teacher`,
     `/s/${schoolId}/parent`,
+    `/s/${schoolId}/student`,
   ];
   if (roots.includes(href)) return false;
   return pathname.startsWith(href);
@@ -37,6 +39,9 @@ export function SchoolNav({
   role,
   items = [],
   sections = [],
+  unreadNotificationsCount = 0,
+  recentNotifications = [],
+  notificationsHref,
 }: {
   schoolId: string;
   schoolName: string;
@@ -44,6 +49,9 @@ export function SchoolNav({
   role: string;
   items?: NavItem[];
   sections?: NavSection[];
+  unreadNotificationsCount?: number;
+  recentNotifications?: NotificationData[];
+  notificationsHref?: string | null;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -148,7 +156,12 @@ export function SchoolNav({
     const fav = favorites.includes(item.href);
     return (
       <div className="group flex items-center gap-1">
-        <Link href={item.href} className={cn(linkClass(item.href), "min-w-0 flex-1")}>
+        <Link
+          href={item.href}
+          prefetch={true}
+          onClick={() => setOpen(false)}
+          className={cn(linkClass(item.href), "min-w-0 flex-1")}
+        >
           {item.label}
         </Link>
         <button
@@ -184,7 +197,7 @@ export function SchoolNav({
           </div>
         </div>
         <p className="mt-3 truncate text-xs text-sidebar-muted">
-          {userName} · {role}
+          {userName} · <span className="font-semibold text-white">{role}</span>
         </p>
       </div>
       <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-4">
@@ -226,7 +239,7 @@ export function SchoolNav({
         })}
 
         {items.length > 0 ? (
-          <div className="space-y-0.5">
+          <div className="space-y-1">
             {items.map((item) => (
               <NavLink key={item.href} item={item} />
             ))}
@@ -261,36 +274,46 @@ export function SchoolNav({
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-surface text-brand"
-          aria-expanded={open}
-          aria-controls="school-nav"
-          aria-label={open ? "Fermer le menu" : "Ouvrir le menu"}
-          onClick={() => setOpen((v) => !v)}
-        >
-          <span className="sr-only">Menu</span>
-          <span className="flex flex-col gap-1.5" aria-hidden>
-            <span
-              className={cn(
-                "block h-0.5 w-5 rounded bg-brand transition",
-                open && "translate-y-2 rotate-45"
-              )}
-            />
-            <span
-              className={cn(
-                "block h-0.5 w-5 rounded bg-brand transition",
-                open && "opacity-0"
-              )}
-            />
-            <span
-              className={cn(
-                "block h-0.5 w-5 rounded bg-brand transition",
-                open && "-translate-y-2 -rotate-45"
-              )}
-            />
-          </span>
-        </button>
+
+        <div className="flex items-center gap-2">
+          <NotificationBell
+            schoolId={schoolId}
+            unreadCount={unreadNotificationsCount}
+            notifications={recentNotifications}
+            variant="dark"
+            notificationsHref={notificationsHref}
+          />
+          <button
+            type="button"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-surface text-brand"
+            aria-expanded={open}
+            aria-controls="school-nav"
+            aria-label={open ? "Fermer le menu" : "Ouvrir le menu"}
+            onClick={() => setOpen((v) => !v)}
+          >
+            <span className="sr-only">Menu</span>
+            <span className="flex flex-col gap-1.5" aria-hidden>
+              <span
+                className={cn(
+                  "block h-0.5 w-5 rounded bg-brand transition",
+                  open && "translate-y-2 rotate-45"
+                )}
+              />
+              <span
+                className={cn(
+                  "block h-0.5 w-5 rounded bg-brand transition",
+                  open && "opacity-0"
+                )}
+              />
+              <span
+                className={cn(
+                  "block h-0.5 w-5 rounded bg-brand transition",
+                  open && "-translate-y-2 -rotate-45"
+                )}
+              />
+            </span>
+          </button>
+        </div>
       </header>
 
       {open ? (

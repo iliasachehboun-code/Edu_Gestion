@@ -5,7 +5,7 @@ import { GradeType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAccess } from "@/lib/auth";
 import { generateReportCard } from "@/lib/grades";
-import { notifyParentsOfStudent } from "@/lib/notifications";
+import { notifyParentsOfStudent, notifyUser } from "@/lib/notifications";
 
 export async function createGradeAction(schoolId: string, formData: FormData) {
   const { user } = await requireSchoolAccess(schoolId, [
@@ -39,19 +39,47 @@ export async function createGradeAction(schoolId: string, formData: FormData) {
     },
   });
 
-  const student = await prisma.student.findUnique({ where: { id: studentId } });
+  const student = await prisma.student.findUnique({
+    where: { id: studentId },
+    include: { user: true },
+  });
+  const subject = await prisma.subject.findUnique({
+    where: { id: subjectId },
+  });
+
+  const subjectName = subject?.name || "une matière";
+  const typeLabel =
+    type === "EXAMEN" ? "Examen" : type === "DEVOIR" ? "Devoir" : "Contrôle";
+
+  // Notifier l'élève
+  if (student?.userId) {
+    await notifyUser({
+      schoolId,
+      userId: student.userId,
+      type: "GRADE",
+      title: `📊 Nouvelle note : ${score}/${maxScore}`,
+      message: `Votre professeur a publié une note de ${score}/${maxScore} en ${subjectName}${title ? ` (${title})` : ` (${typeLabel})`}.`,
+      link: `/s/${schoolId}/student/grades`,
+    });
+  }
+
+  // Notifier les parents
   if (student) {
     await notifyParentsOfStudent({
       schoolId,
       studentId,
       type: "GRADE",
       title: "Nouvelle note",
-      message: `Une note a été ajoutée pour ${student.firstName} ${student.lastName}.`,
+      message: `Une note de ${score}/${maxScore} a été ajoutée pour ${student.firstName} ${student.lastName} en ${subjectName}.`,
       link: `/s/${schoolId}/parent`,
     });
   }
 
+  revalidatePath(`/s/${schoolId}`);
   revalidatePath(`/s/${schoolId}/grades`);
+  revalidatePath(`/s/${schoolId}/student`);
+  revalidatePath(`/s/${schoolId}/student/grades`);
+  revalidatePath(`/s/${schoolId}/student/notifications`);
   revalidatePath(`/s/${schoolId}/teacher`);
   revalidatePath(`/s/${schoolId}/parent`);
 }

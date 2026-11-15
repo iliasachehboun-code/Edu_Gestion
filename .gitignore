@@ -45,3 +45,8 @@ next-env.d.ts
 # sqlite
 prisma/*.db
 prisma/*.db-journal
+
+# uploaded files (justificatifs, devoirs, cours)
+/storage/**
+!/storage/**/
+!/storage/**/.gitkeep

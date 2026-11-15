@@ -61,10 +61,12 @@ async function main() {
   });
 
   const termSpecs = [
-    { name: "Trimestre 1", order: 1, start: "2025-09-01", end: "2025-12-20" },
-    { name: "Trimestre 2", order: 2, start: "2026-01-05", end: "2026-03-28" },
-    { name: "Trimestre 3", order: 3, start: "2026-04-07", end: "2026-06-30" },
+    { name: "Semestre 1", order: 1, start: "2025-09-01", end: "2026-01-31" },
+    { name: "Semestre 2", order: 2, start: "2026-02-01", end: "2026-06-30" },
   ];
+  await prisma.term.deleteMany({
+    where: { academicYearId: year.id, order: { gt: 2 } },
+  });
   for (const t of termSpecs) {
     const existing = await prisma.term.findFirst({
       where: { academicYearId: year.id, order: t.order },
@@ -78,6 +80,11 @@ async function main() {
           startDate: new Date(t.start),
           endDate: new Date(t.end),
         },
+      });
+    } else {
+      await prisma.term.update({
+        where: { id: existing.id },
+        data: { name: t.name, startDate: new Date(t.start), endDate: new Date(t.end) },
       });
     }
   }
@@ -153,8 +160,10 @@ async function main() {
     { name: "Français", code: "FR", coefficient: 4 },
     { name: "Histoire-Géo", code: "HG", coefficient: 3 },
     { name: "Anglais", code: "ANG", coefficient: 3 },
+    { name: "Arabe", code: "ARA", coefficient: 3 },
     { name: "SVT", code: "SVT", coefficient: 2 },
     { name: "Physique-Chimie", code: "PC", coefficient: 3 },
+    { name: "Espagnol", code: "ESP", coefficient: 2 },
     { name: "EPS", code: "EPS", coefficient: 1 },
   ];
   const subjects: Record<string, { id: string; coefficient: number }> = {};
@@ -170,9 +179,11 @@ async function main() {
     { firstName: "Jean", lastName: "Martin", email: "prof@ecole-demo.fr", specialty: "Mathématiques" },
     { firstName: "Claire", lastName: "Moreau", email: "claire.moreau@ecole-demo.fr", specialty: "Français" },
     { firstName: "Ahmed", lastName: "Benali", email: "ahmed.benali@ecole-demo.fr", specialty: "Anglais" },
+    { firstName: "Fatima", lastName: "Zahra", email: "fatima.zahra@ecole-demo.fr", specialty: "Arabe" },
     { firstName: "Sophie", lastName: "Laurent", email: "sophie.laurent@ecole-demo.fr", specialty: "Histoire-Géo" },
     { firstName: "Lucas", lastName: "Petit", email: "lucas.petit@ecole-demo.fr", specialty: "SVT" },
     { firstName: "Inès", lastName: "Bernard", email: "ines.bernard@ecole-demo.fr", specialty: "Physique-Chimie" },
+    { firstName: "Elena", lastName: "Garcia", email: "elena.garcia@ecole-demo.fr", specialty: "Espagnol" },
     { firstName: "Omar", lastName: "Diallo", email: "omar.diallo@ecole-demo.fr", specialty: "EPS" },
   ];
   const teachers: Record<string, { id: string }> = {};
@@ -368,6 +379,22 @@ async function main() {
     }
   }
 
+  const lucas = createdStudents.find((s) => s.matricule === "STU-001") || createdStudents[0];
+  if (lucas) {
+    const studentUser = await ensureUser({
+      email: "eleve@ecole-demo.fr",
+      firstName: lucas.firstName,
+      lastName: lucas.lastName,
+      schoolId: school.id,
+      role: "STUDENT",
+      passwordHash: demoHash,
+    });
+    await prisma.student.update({
+      where: { id: lucas.id },
+      data: { userId: studentUser.id },
+    });
+  }
+
   const teachClasses = classSpecs.map((c) => c.name);
   for (const className of teachClasses) {
     for (const subjectName of Object.keys(subjects)) {
@@ -396,28 +423,44 @@ async function main() {
     maxScore: number;
     coefficient: number;
   }[] = [];
+  await prisma.grade.deleteMany({ where: { schoolId: school.id } });
   createdStudents.forEach((student, index) => {
     gradedSubjects.forEach((subjectName, subjectIndex) => {
-      const control = 8 + ((index + subjectIndex * 3) % 12);
+      const base = 11 + ((index + subjectIndex * 3) % 7);
+      const cc1 = Math.min(20, Math.max(6, base + ((subjectIndex + 1) % 3) - 1));
+      const cc2 = Math.min(20, Math.max(6, base + ((subjectIndex + 2) % 4) - 2));
+      const cc3 = Math.min(20, Math.max(6, base + (subjectIndex % 3)));
+
       gradeRows.push({
         schoolId: school.id,
         studentId: student.id,
         subjectId: subjects[subjectName].id,
         termId: term1.id,
-        type: subjectIndex % 2 === 0 ? "CONTROLE" : "EXAMEN",
-        title: "Contrôle 1",
-        score: control,
+        type: "CONTROLE",
+        title: "Contrôle Continu 1",
+        score: cc1,
         maxScore: 20,
-        coefficient: 2,
+        coefficient: 1,
       });
       gradeRows.push({
         schoolId: school.id,
         studentId: student.id,
         subjectId: subjects[subjectName].id,
         termId: term1.id,
-        type: "DEVOIR",
-        title: "Devoir maison",
-        score: Math.min(20, control + 1),
+        type: "CONTROLE",
+        title: "Contrôle Continu 2",
+        score: cc2,
+        maxScore: 20,
+        coefficient: 1,
+      });
+      gradeRows.push({
+        schoolId: school.id,
+        studentId: student.id,
+        subjectId: subjects[subjectName].id,
+        termId: term1.id,
+        type: "CONTROLE",
+        title: "Contrôle Continu 3",
+        score: cc3,
         maxScore: 20,
         coefficient: 1,
       });
@@ -470,32 +513,46 @@ async function main() {
     });
   }
 
+  await prisma.scheduleEntry.deleteMany({ where: { schoolId: school.id } });
   const grid: [string, number, number, string, string][] = [
+    // 6ème A (Classe de Lucas Bernard) - Emploi du temps complet de toute la semaine
+    // Lundi (Jour 1)
     ["6ème A", 1, 1, "Mathématiques", "Salle 12"],
-    ["6ème A", 1, 2, "Français", "Salle 12"],
+    ["6ème A", 1, 2, "Mathématiques", "Salle 12"],
+    ["6ème A", 1, 3, "Français", "Salle 12"],
+    ["6ème A", 1, 4, "Histoire-Géo", "Salle 14"],
+    ["6ème A", 1, 5, "SVT", "Labo SVT"],
+    ["6ème A", 1, 6, "Anglais", "Salle 14"],
+
+    // Mardi (Jour 2)
     ["6ème A", 2, 1, "Anglais", "Salle 14"],
     ["6ème A", 2, 2, "Histoire-Géo", "Salle 14"],
-    ["6ème A", 3, 1, "SVT", "Labo SVT"],
-    ["6ème A", 3, 2, "Physique-Chimie", "Labo SVT"],
+    ["6ème A", 2, 3, "Français", "Salle 12"],
+    ["6ème A", 2, 4, "Français", "Salle 12"],
+    ["6ème A", 2, 5, "Physique-Chimie", "Labo SVT"],
+    ["6ème A", 2, 6, "Mathématiques", "Salle 12"],
+
+    // Mercredi (Jour 3 - matinée)
+    ["6ème A", 3, 1, "Mathématiques", "Salle 12"],
+    ["6ème A", 3, 2, "Français", "Salle 12"],
+    ["6ème A", 3, 3, "SVT", "Labo SVT"],
+    ["6ème A", 3, 4, "Anglais", "Salle 14"],
+
+    // Jeudi (Jour 4)
     ["6ème A", 4, 1, "EPS", "Gymnase"],
-    ["6ème A", 4, 2, "Mathématiques", "Salle 12"],
+    ["6ème A", 4, 2, "EPS", "Gymnase"],
+    ["6ème A", 4, 3, "Physique-Chimie", "Labo SVT"],
+    ["6ème A", 4, 4, "Mathématiques", "Salle 12"],
+    ["6ème A", 4, 5, "Histoire-Géo", "Salle 14"],
+    ["6ème A", 4, 6, "Français", "Salle 12"],
+
+    // Vendredi (Jour 5)
     ["6ème A", 5, 1, "Français", "Salle 12"],
     ["6ème A", 5, 2, "Anglais", "Salle 14"],
-    ["5ème A", 1, 3, "Mathématiques", "Salle 14"],
-    ["5ème A", 1, 4, "Français", "Salle 14"],
-    ["5ème A", 2, 3, "Anglais", "Salle 12"],
-    ["5ème A", 2, 4, "Histoire-Géo", "Salle 12"],
-    ["5ème A", 3, 3, "SVT", "Labo SVT"],
-    ["5ème A", 3, 4, "Physique-Chimie", "Labo SVT"],
-    ["5ème A", 4, 3, "EPS", "Gymnase"],
-    ["5ème A", 4, 5, "Mathématiques", "Salle 14"],
-    ["5ème A", 5, 3, "Français", "Salle 12"],
-    ["5ème A", 5, 4, "Anglais", "Salle 12"],
-    ["6ème B", 1, 5, "Mathématiques", "Salle 12"],
-    ["6ème B", 2, 5, "Français", "Salle 12"],
-    ["6ème B", 3, 5, "Anglais", "Salle 14"],
-    ["6ème B", 4, 6, "Histoire-Géo", "Salle 14"],
-    ["6ème B", 5, 5, "EPS", "Gymnase"],
+    ["6ème A", 5, 3, "Histoire-Géo", "Salle 14"],
+    ["6ème A", 5, 4, "Mathématiques", "Salle 12"],
+    ["6ème A", 5, 5, "Physique-Chimie", "Labo SVT"],
+    ["6ème A", 5, 6, "SVT", "Labo SVT"],
   ];
   for (const [className, day, order, subjectName, room] of grid) {
     const slot = slotByOrder.get(order);
@@ -513,30 +570,56 @@ async function main() {
     });
   }
 
+  await prisma.attendance.deleteMany({ where: { schoolId: school.id } });
+  const subjectKeys = Object.keys(subjects);
+  const timeSlotOptions = ["08h00 - 10h00", "10h15 - 12h15", "14h00 - 15h00", "15h00 - 17h00"];
   const absenceDates = [
-    new Date("2026-11-02T12:00:00"),
-    new Date("2026-11-03T12:00:00"),
-    new Date("2026-11-04T12:00:00"),
+    new Date("2025-10-14"),
+    new Date("2025-10-28"),
+    new Date("2025-11-05"),
+    new Date("2025-11-17"),
+    new Date("2025-12-02"),
   ];
-  await prisma.attendance.createMany({
-    data: createdStudents.slice(0, 36).map((student, i) => {
-      const status = i % 3 === 0 ? "ABSENT" : i % 3 === 1 ? "LATE" : "EXCUSED";
-      return {
+
+  const attendanceData = createdStudents.slice(0, 36).flatMap((student, i) => {
+    return [
+      {
         schoolId: school.id,
         studentId: student.id,
         classId: student.classId,
+        subjectId: subjects[subjectKeys[i % subjectKeys.length]].id,
+        time: timeSlotOptions[i % timeSlotOptions.length],
         date: absenceDates[i % absenceDates.length],
-        status: status as "ABSENT" | "LATE" | "EXCUSED",
-        reason:
-          status === "ABSENT"
-            ? "Maladie"
-            : status === "LATE"
-              ? "Transport"
-              : "Rendez-vous médical",
-        justified: status === "EXCUSED",
-      };
-    }),
+        status: "ABSENT" as const,
+        reason: null,
+        justified: false, // Absence non justifiée
+      },
+      {
+        schoolId: school.id,
+        studentId: student.id,
+        classId: student.classId,
+        subjectId: subjects[subjectKeys[(i + 2) % subjectKeys.length]].id,
+        time: timeSlotOptions[(i + 1) % timeSlotOptions.length],
+        date: absenceDates[(i + 2) % absenceDates.length],
+        status: "ABSENT" as const,
+        reason: "Certificat médical validé",
+        justified: true,
+      },
+      {
+        schoolId: school.id,
+        studentId: student.id,
+        classId: student.classId,
+        subjectId: subjects[subjectKeys[(i + 4) % subjectKeys.length]].id,
+        time: timeSlotOptions[(i + 3) % timeSlotOptions.length],
+        date: absenceDates[(i + 3) % absenceDates.length],
+        status: "ABSENT" as const,
+        reason: null,
+        justified: false, // Seconde absence non justifiée
+      },
+    ];
   });
+
+  await prisma.attendance.createMany({ data: attendanceData });
 
   const tuition = await prisma.feeType.create({
     data: {
@@ -707,6 +790,239 @@ async function main() {
     },
   });
 
+  if (lucas) {
+    const existingReqs = await prisma.administrativeRequest.count({
+      where: { studentId: lucas.id },
+    });
+    if (existingReqs === 0) {
+      await prisma.administrativeRequest.createMany({
+        data: [
+          {
+            schoolId: school.id,
+            studentId: lucas.id,
+            type: "CONVENTION_STAGE",
+            title: "Convention de stage d'observation - Cabinet d'Architecture",
+            description: "Stage de découverte professionnelle en entreprise du 15 au 19 décembre 2025.",
+            status: "VALIDEE",
+            responseNote: "Convention visée et signée par le chef d'établissement.",
+          },
+          {
+            schoolId: school.id,
+            studentId: lucas.id,
+            type: "ATTESTATION_PRESENCE",
+            title: "Attestation d'assiduité scolaire - Dossier CAF / Bourses",
+            description: "Attestation de présence effective pour le dossier d'allocations.",
+            status: "EN_COURS",
+            responseNote: "En cours de signature par la Vie Scolaire.",
+          },
+        ],
+      });
+    }
+
+    const class6A = classes["6ème A"];
+    if (class6A) {
+      const existingEvals = await prisma.evaluation.count({
+        where: { classId: class6A.id },
+      });
+      if (existingEvals === 0) {
+        await prisma.evaluation.createMany({
+          data: [
+            {
+              schoolId: school.id,
+              classId: class6A.id,
+              subjectId: subjects["Mathématiques"].id,
+              termId: term1?.id,
+              title: "Contrôle Continu n°2 - Fractions & Nombres Décimaux",
+              type: "CONTROLE",
+              date: new Date(Date.now() + 2 * 24 * 3600 * 1000),
+              startTime: "09h00",
+              durationMin: 55,
+              coefficient: 1.5,
+              room: "Salle 102",
+              instructions: "Calculatrice collège interdite. Prévoir matériel de géométrie (règle graduée, compas, équerre).",
+              topics: "Chapitre 3 : Additions et soustractions de fractions de même dénominateur, écriture décimale et arrondis.",
+            },
+            {
+              schoolId: school.id,
+              classId: class6A.id,
+              subjectId: subjects["Anglais"].id,
+              termId: term1?.id,
+              title: "Unit 2 Oral Assessment: Daily Routine & Free-Time Activities",
+              type: "INTERROGATION",
+              date: new Date(Date.now() + 4 * 24 * 3600 * 1000),
+              startTime: "11h15",
+              durationMin: 50,
+              room: "Room 105",
+              coefficient: 1.5,
+              instructions: "Individual 2-minute oral presentation without notes. Clear pronunciation and continuous speech required. Be on time.",
+              topics: "Unit 2: Present Simple vs Present Continuous, adverbs of frequency (always, often, sometimes, never), daily routine and hobbies vocabulary.",
+            },
+            {
+              schoolId: school.id,
+              classId: class6A.id,
+              subjectId: subjects["Arabe"].id,
+              termId: term1?.id,
+              title: "فرض محروس رقم 1 : مكون القراءة والدرس اللغوي والتعبير",
+              type: "DEVOIR_SUR_TABLE",
+              date: new Date(Date.now() + 6 * 24 * 3600 * 1000),
+              startTime: "10h15",
+              durationMin: 60,
+              room: "القاعة 104",
+              coefficient: 3.0,
+              instructions: "الكتابة بخط مقروء وأنيق مع الحرص على نظافة ورقة التحرير. يمنع منعاً كلياً استعمال المبيض (blanco). إحضار الأدوات المدرسية كاملة.",
+              topics: "مكون القراءة : النصوص الوظيفية (القيم الوطنية والإنسانية) · مكون الدرس اللغوي : المبتدأ والخبر وتطابقهما، الفعل اللازم والمتعدي · مكون التعبير والإنشاء : مهارة الحكاية والوصف",
+            },
+            {
+              schoolId: school.id,
+              classId: class6A.id,
+              subjectId: subjects["Français"].id,
+              termId: term1?.id,
+              title: "Devoir Commun - Dictée préparée & Étude de texte",
+              type: "DEVOIR_COMMUN",
+              date: new Date(Date.now() + 8 * 24 * 3600 * 1000),
+              startTime: "10h15",
+              durationMin: 110,
+              coefficient: 2.0,
+              room: "Salle Polyvalente",
+              instructions: "Feuilles doubles d'examen fournies. Encre bleue ou noire uniquement. Dictionnaire interdit.",
+              topics: "Récits de création et Odyssée : compréhension de texte, analyse grammaticale et accords du participe passé.",
+            },
+            {
+              schoolId: school.id,
+              classId: class6A.id,
+              subjectId: subjects["Anglais"].id,
+              termId: term1?.id,
+              title: "Mid-Term Written Exam: Reading Comprehension & Essay Writing",
+              type: "DEVOIR_SUR_TABLE",
+              date: new Date(Date.now() + 11 * 24 * 3600 * 1000),
+              startTime: "14h00",
+              durationMin: 60,
+              room: "Room 105",
+              coefficient: 2.0,
+              instructions: "Blue or black pens only. Bilingual dictionary allowed for the writing task. Smartwatches and mobile phones strictly forbidden.",
+              topics: "Reading section: School life in London. Grammar: Past simple of irregular verbs, question tags, prepositions of time. Short writing task (80 words).",
+            },
+            {
+              schoolId: school.id,
+              classId: class6A.id,
+              subjectId: subjects["Espagnol"].id,
+              termId: term1?.id,
+              title: "Control Escrito n°1 : Comprensión Lectora y Gramática",
+              type: "CONTROLE",
+              date: new Date(Date.now() + 14 * 24 * 3600 * 1000),
+              startTime: "15h00",
+              durationMin: 55,
+              room: "Sala 202",
+              coefficient: 2.0,
+              instructions: "Bolígrafo azul o negro obligatorio. Diccionario no permitido. Apagar los teléfonos móviles antes de entrar.",
+              topics: "Unidad 2 : Presentarse y describir a su familia. Los verbos regulares en -ar, -er, -ir y los verbos ser/estar/tener.",
+            },
+          ],
+        });
+      }
+    }
+
+    // Devoirs démo
+    const existingHomeworks = await prisma.homework.count({ where: { schoolId: school.id } });
+    if (existingHomeworks === 0 && class6A) {
+      await prisma.homework.createMany({
+        data: [
+          {
+            schoolId: school.id,
+            classId: class6A.id,
+            subjectId: subjects["Mathématiques"].id,
+            title: "Exercices 14 à 20 p. 45 - Géométrie et fractions",
+            description: "Résoudre les exercices d'application sur feuille ou déposer un scan/photo de votre copie.\nAttention à bien rédiger chaque étape des calculs.",
+            dueDate: new Date(Date.now() + 3 * 24 * 3600 * 1000),
+            fileName: "Fiche_Exercices_Geometrie.pdf",
+          },
+          {
+            schoolId: school.id,
+            classId: class6A.id,
+            subjectId: subjects["Français"].id,
+            title: "Rédaction : Écriture d'une fable moderne",
+            description: "Rédigez un court récit mettant en scène deux animaux pour illustrer une morale actuelle.\nEnviron 20 à 30 lignes. Format Word ou PDF accepté.",
+            dueDate: new Date(Date.now() + 5 * 24 * 3600 * 1000),
+            fileName: "Consignes_Fable_Moderne.pdf",
+          },
+          {
+            schoolId: school.id,
+            classId: class6A.id,
+            subjectId: subjects["Anglais"].id,
+            title: "Short Essay : My Dream School Trip",
+            description: "Write 100-150 words about your dream trip to London or New York. Use the simple past and future forms.",
+            dueDate: new Date(Date.now() + 2 * 24 * 3600 * 1000),
+            fileName: "Vocabulary_Travel_Guide.pdf",
+          },
+        ],
+      });
+    }
+
+    // Supports de cours démo
+    const existingCourses = await prisma.courseMaterial.count({ where: { schoolId: school.id } });
+    if (existingCourses === 0 && class6A) {
+      await prisma.courseMaterial.createMany({
+        data: [
+          {
+            schoolId: school.id,
+            classId: class6A.id,
+            subjectId: subjects["Mathématiques"].id,
+            title: "Chapitre 3 : Théorème de Pythagore et réciproque",
+            chapter: "Chapitre 3",
+            description: "Fiche de synthèse complète avec démonstrations, exemples types et astuces de calcul.",
+            fileName: "Cours_Complet_Pythagore.pdf",
+            fileSize: "1.4 Mo",
+            fileType: "application/pdf",
+          },
+          {
+            schoolId: school.id,
+            classId: class6A.id,
+            subjectId: subjects["Français"].id,
+            title: "Grammaire : Les accords dans le groupe nominal et propositions subordonnées",
+            chapter: "Séquence 2",
+            description: "Rappels de règles, tableaux synthétiques et liste de pièges fréquents à éviter.",
+            fileName: "Fiche_Grammaire_Accords.pdf",
+            fileSize: "820 Ko",
+            fileType: "application/pdf",
+          },
+          {
+            schoolId: school.id,
+            classId: class6A.id,
+            subjectId: subjects["Histoire-Géo"].id,
+            title: "L'Empire romain : conquêtes, administration et romanisation",
+            chapter: "Thème 1",
+            description: "Support illustré avec cartes historiques, repères chronologiques et documents sources.",
+            fileName: "Histoire_Empire_Romain_Cartes.pdf",
+            fileSize: "3.2 Mo",
+            fileType: "application/pdf",
+          },
+          {
+            schoolId: school.id,
+            classId: class6A.id,
+            subjectId: subjects["SVT"].id,
+            title: "La cellule végétale et animale : observation microscopique",
+            chapter: "Unité 1",
+            description: "Schémas légendés de la cellule, organites et protocole expérimental de préparation.",
+            fileName: "SVT_Fiche_Microscope_Cellule.pdf",
+            fileSize: "2.1 Mo",
+            fileType: "application/pdf",
+          },
+          {
+            schoolId: school.id,
+            classId: class6A.id,
+            subjectId: subjects["Anglais"].id,
+            title: "Unit 2 : London Landmarks & British Culture",
+            chapter: "Unit 2",
+            description: "Interactive study guide with key vocabulary, reading comprehension and listening tips.",
+            fileName: "English_Unit2_London_Guide.pdf",
+            fileSize: "1.8 Mo",
+            fileType: "application/pdf",
+          },
+        ],
+      });
+    }
+  }
+
   const [students, teachersCount, grades, fees] = await Promise.all([
     prisma.student.count({ where: { schoolId: school.id } }),
     prisma.teacher.count({ where: { schoolId: school.id } }),
@@ -715,11 +1031,12 @@ async function main() {
   ]);
 
   console.log("Jeu de données démo chargé");
-  console.log(`École Démo : ${students} étudiants, ${teachersCount} enseignants, ${grades} notes, ${fees} frais`);
+  console.log(`École Démo : ${students} élèves, ${teachersCount} enseignants, ${grades} notes, ${fees} frais`);
   console.log("SuperAdmin : admin@school.app / admin123");
   console.log("Directeur  : directeur@ecole-demo.fr / demo123");
   console.log("Enseignant : prof@ecole-demo.fr / demo123");
   console.log("Parent     : parent@ecole-demo.fr / demo123");
+  console.log("Élève      : eleve@ecole-demo.fr / demo123");
 }
 
 async function ensureUser(params: {
@@ -727,7 +1044,7 @@ async function ensureUser(params: {
   firstName: string;
   lastName: string;
   schoolId: string;
-  role: "SCHOOL_ADMIN" | "TEACHER" | "PARENT";
+  role: "SCHOOL_ADMIN" | "TEACHER" | "PARENT" | "STUDENT";
   passwordHash: string;
 }) {
   const user = await prisma.user.upsert({

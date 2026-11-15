@@ -40,6 +40,9 @@ export async function loginAction(formData: FormData) {
   if (membership.role === "TEACHER") {
     redirect(`/s/${membership.schoolId}/teacher`);
   }
+  if (membership.role === "STUDENT") {
+    redirect(`/s/${membership.schoolId}/student`);
+  }
   redirect(`/s/${membership.schoolId}`);
 }
 
@@ -77,3 +80,57 @@ export async function registerSchoolAdminAction(formData: FormData) {
 export async function getCurrentUserAction() {
   return getSessionUser();
 }
+
+export async function changePasswordAction(schoolId: string, formData: FormData) {
+  const currentPassword = String(formData.get("currentPassword") || "");
+  const newPassword = String(formData.get("newPassword") || "");
+  const confirmPassword = String(formData.get("confirmPassword") || "");
+
+  const sessionUser = await getSessionUser();
+  if (!sessionUser) {
+    return { error: "Session expirée. Veuillez vous reconnecter." };
+  }
+
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    return { error: "Tous les champs sont obligatoires." };
+  }
+
+  if (newPassword.length < 6) {
+    return { error: "Le nouveau mot de passe doit contenir au moins 6 caractères." };
+  }
+
+  if (newPassword !== confirmPassword) {
+    return { error: "Le nouveau mot de passe et sa confirmation ne correspondent pas." };
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: sessionUser.id } });
+  if (!user) {
+    return { error: "Utilisateur introuvable." };
+  }
+
+  const isValid = await verifyPassword(currentPassword, user.passwordHash);
+  if (!isValid) {
+    return { error: "Le mot de passe actuel est incorrect." };
+  }
+
+  const newHash = await hashPassword(newPassword);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash: newHash },
+  });
+
+  const { logAuditEvent } = await import("@/lib/audit");
+  await logAuditEvent({
+    schoolId,
+    userId: user.id,
+    userName: `${user.firstName} ${user.lastName}`,
+    userRole: "STUDENT",
+    action: "PASSWORD_CHANGE",
+    resourceType: "USER",
+    resourceId: user.id,
+    details: "Modification sécurisée du mot de passe",
+  });
+
+  return { success: true };
+}
+

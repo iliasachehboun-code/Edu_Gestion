@@ -23,6 +23,7 @@ export default async function SchoolDashboard({
 
   if (role === "PARENT") redirect(`/s/${schoolId}/parent`);
   if (role === "TEACHER") redirect(`/s/${schoolId}/teacher`);
+  if (role === "STUDENT") redirect(`/s/${schoolId}/student`);
 
   const today = new Date();
   today.setHours(12, 0, 0, 0);

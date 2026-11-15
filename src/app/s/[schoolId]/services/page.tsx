@@ -37,7 +37,7 @@ export default async function ServicesPage({
     <div>
       <PageHeader
         title="Transport et cantine"
-        description="Services proposés aux étudiants."
+        description="Services proposés aux élèves."
       />
       <div className="grid gap-8 xl:grid-cols-[1.3fr_0.7fr]">
         {services.length === 0 ? (

@@ -48,7 +48,7 @@ export default async function AdmissionsPage({
     <div>
       <PageHeader
         title="Admissions et inscriptions"
-        description="Inscrire un étudiant dans une classe pour l'année en cours."
+        description="Inscrire un élève dans une classe pour l'année en cours."
       />
       <Card className="mb-6">
         <form method="get" className="grid gap-3 md:grid-cols-[1fr_auto]">
@@ -76,7 +76,7 @@ export default async function AdmissionsPage({
           <Table>
             <thead>
               <tr>
-                <Th>Étudiant</Th>
+                <Th>Élève</Th>
                 <Th>Classe</Th>
                 <Th>Année</Th>
               </tr>

@@ -1,0 +1,24 @@
+{
+  "name": "EduGestion - Espace Scolaire & Étudiant",
+  "short_name": "EduGestion",
+  "description": "Portail étudiant, gestion scolaire et suivi pédagogique moderne",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f8fc",
+  "theme_color": "#002b5b",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/henri-moissan.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/henri-moissan.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
