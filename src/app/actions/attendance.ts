@@ -5,6 +5,7 @@ import { AttendanceStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAccess } from "@/lib/auth";
 import { notifyParentsOfStudent } from "@/lib/notifications";
+import { assertClassAttendanceEditable } from "@/lib/attendance-lock";
 
 export async function saveAttendanceAction(
   schoolId: string,
@@ -21,6 +22,7 @@ export async function saveAttendanceAction(
 
   const date = new Date(dateStr);
   date.setHours(12, 0, 0, 0);
+  await assertClassAttendanceEditable(schoolId, classId, date);
 
   const teacher = await prisma.teacher.findFirst({
     where: { schoolId, userId: user.id },
@@ -86,6 +88,9 @@ export async function justifyAttendanceAction(
 ) {
   await requireSchoolAccess(schoolId, ["SCHOOL_ADMIN", "PARENT"]);
   const reason = String(formData.get("reason") || "").trim();
+  const attendance = await prisma.attendance.findFirst({ where: { id: attendanceId, schoolId } });
+  if (!attendance) throw new Error("Présence introuvable.");
+  await assertClassAttendanceEditable(schoolId, attendance.classId, attendance.date);
   await prisma.attendance.update({
     where: { id: attendanceId },
     data: {

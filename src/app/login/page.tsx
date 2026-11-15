@@ -1,75 +1,42 @@
-import Image from "next/image";
+﻿import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
-import { Card } from "@/components/ui";
 import { LoginForm } from "@/components/login-form";
+import "./login.css";
 
 export default async function LoginPage() {
   const user = await getSessionUser();
   if (user) redirect("/");
-
-  return (
-    <main className="grid min-h-screen lg:grid-cols-[1.05fr_0.95fr]">
-      <section className="relative flex flex-col justify-between overflow-hidden bg-[#002b5b] px-8 py-10 text-[#f3f7ff] sm:px-12">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-[#8fe3cf]/35"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute bottom-0 left-0 h-56 w-56 rounded-full bg-[#f0df07]/25"
-        />
-        <div className="relative flex items-center gap-4">
-          <span className="rounded-2xl bg-white p-2 shadow-sm">
-            <Image
-              src="/henri-moissan.png"
-              alt="Logo du groupe scolaire Henri Moissan"
-              width={120}
-              height={73}
-              priority
-            />
-          </span>
-          <div>
-            <p className="font-[family-name:var(--font-fraunces)] text-2xl font-semibold">
-              Henri Moissan
-            </p>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8fe3cf]">
-              Groupe scolaire
-            </p>
-          </div>
-        </div>
-        <div className="relative max-w-md py-16">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#8fe3cf]">
-            Primaire, collège et lycée
-          </p>
-          <h1 className="mt-4 font-[family-name:var(--font-fraunces)] text-5xl font-semibold leading-tight">
-            L&apos;école, au quotidien.
-          </h1>
-          <p className="mt-4 text-base text-[#d7e6fb]">
-            Élèves, cours, notes et familles dans le même espace, clair et vivant.
-          </p>
-        </div>
-        <p className="relative text-sm text-[#c5d8f2]">Rabat · Hassan</p>
-      </section>
-      <section className="flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md">
-          <Card>
-            <h2 className="mb-4 font-[family-name:var(--font-fraunces)] text-2xl font-semibold text-[#0c2340]">
-              Connexion
-            </h2>
-            <LoginForm />
-            <div className="mt-6 rounded-xl bg-[#f4f8fc] p-3 text-xs text-[#3d5278]">
-              <p className="font-semibold text-[#002b5b]">Comptes démo</p>
-              <ul className="mt-2 space-y-1">
-                <li>SuperAdmin — admin@school.app / admin123</li>
-                <li>Directeur — directeur@ecole-demo.fr / demo123</li>
-                <li>Enseignant — prof@ecole-demo.fr / demo123</li>
-                <li>Parent — parent@ecole-demo.fr / demo123</li>
-              </ul>
-            </div>
-          </Card>
-        </div>
-      </section>
-    </main>
-  );
+  return <main className="school-login-page">
+    <section className="school-login-story" aria-labelledby="school-story-title">
+      <a href="/login" className="school-login-brand" aria-label="Henri Moissan, accueil du portail">
+        <span className="school-login-mark"><Image src="/henri-moissan.png" alt="" width={94} height={58} priority /></span>
+        <span>Henri Moissan<small>GROUPE SCOLAIRE · RABAT</small></span>
+      </a>
+      <div className="school-login-editorial">
+        <p className="school-login-kicker"><span /> L’école, ensemble.</p>
+        <h1 id="school-story-title">Chaque journée<br />ouvre un <em>avenir.</em></h1>
+        <p className="school-login-story-copy">Enseignants, familles, équipes pédagogiques.<br />Un même lien, tout au long de l’année.</p>
+      </div>
+      <div className="school-login-art"><Image src="/school-courtyard.svg" alt="Illustration d’une cour d’école bordée d’arcades" width={900} height={540} priority /></div>
+      <div className="school-login-story-foot"><span>Apprendre. Grandir. S’accomplir.</span><span>Hassan, Rabat <span aria-hidden="true">↗</span></span></div>
+    </section>
+    <section className="school-login-access" aria-labelledby="login-title">
+      <header className="school-login-access-top"><span>Portail scolaire</span><a href="mailto:groupe.scolaire@henrimoissan.net">Besoin d’aide ? <span aria-hidden="true">↗</span></a></header>
+      <div className="school-login-login">
+        <p className="school-login-eyebrow">BIENVENUE CHEZ VOUS</p>
+        <h2 id="login-title">Votre école.<br />Votre espace.</h2>
+        <p className="school-login-intro">Connectez-vous pour retrouver votre quotidien scolaire.</p>
+        <LoginForm />
+        <p className="school-login-help">Première connexion ou identifiants oubliés ?<br /><a href="mailto:groupe.scolaire@henrimoissan.net">Le secrétariat vous accompagne <span aria-hidden="true">→</span></a></p>
+        <details className="school-login-demo"><summary>Essayer un compte de démonstration</summary><dl>
+          <div><dt>Professeur</dt><dd>prof@ecole-demo.fr · demo123</dd></div>
+          <div><dt>Direction</dt><dd>directeur@ecole-demo.fr · demo123</dd></div>
+          <div><dt>Parent</dt><dd>parent@ecole-demo.fr · demo123</dd></div>
+          <div><dt>Super administrateur</dt><dd>admin@school.app · admin123</dd></div>
+        </dl></details>
+      </div>
+      <footer className="school-login-footer"><span>Groupe scolaire Henri Moissan</span><a href="tel:+212666363631">06 66 36 36 31</a></footer>
+    </section>
+  </main>;
 }

@@ -285,6 +285,8 @@ model TeacherAssignment {
   teacherId String
   classId   String
   subjectId String
+  plannedSessions Int @default(24)
+  contents CourseContent[]
 
   school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
@@ -292,6 +294,26 @@ model TeacherAssignment {
   subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
   @@unique([teacherId, classId, subjectId])
+}
+
+model CourseContent {
+  id String @id @default(cuid())
+  assignmentId String
+  kind String
+  title String
+  body String
+  url String?
+  createdAt DateTime @default(now())
+  assignment TeacherAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+}
+
+model TeacherLesson {
+  id String @id @default(cuid())
+  scheduleEntryId String
+  teacherId String
+  date String
+  completed Boolean @default(true)
+  @@unique([scheduleEntryId, date])
 }
 
 model Grade {
