@@ -43,7 +43,7 @@ export default async function CommunicationPage({
         actions={
           <Link
             href={`/s/${schoolId}/parents`}
-            className="text-sm font-medium text-[#264c93] hover:underline"
+            className="text-sm font-medium text-brand hover:underline"
           >
             Gérer les parents
           </Link>
@@ -71,7 +71,7 @@ export default async function CommunicationPage({
                   </Td>
                   <Td>
                     <div className="font-medium">{n.title}</div>
-                    <div className="text-xs text-[#3d5278]">{n.message}</div>
+                    <div className="text-xs text-muted">{n.message}</div>
                   </Td>
                   <Td>
                     <Badge tone={n.read ? "success" : "warning"}>

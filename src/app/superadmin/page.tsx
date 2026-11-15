@@ -6,6 +6,7 @@ import {
   Field,
   Input,
   PageHeader,
+  SectionTitle,
   Table,
   Td,
   Th,
@@ -32,7 +33,7 @@ export default async function SuperAdminPage() {
       />
 
       <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
-        <div>
+        <div className="min-w-0">
           {schools.length === 0 ? (
             <Card>Aucune école pour le moment.</Card>
           ) : (
@@ -48,10 +49,10 @@ export default async function SuperAdminPage() {
               </thead>
               <tbody>
                 {schools.map((school) => (
-                  <tr key={school.id}>
+                  <tr key={school.id} className="hover:bg-brand-soft/40">
                     <Td>
                       <div className="font-medium">{school.name}</div>
-                      <div className="text-xs text-[#3d5278]">{school.slug}</div>
+                      <div className="text-xs text-muted">{school.slug}</div>
                     </Td>
                     <Td>{school._count.students}</Td>
                     <Td>{school._count.teachers}</Td>
@@ -61,10 +62,10 @@ export default async function SuperAdminPage() {
                       </Badge>
                     </Td>
                     <Td>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-3">
                         <Link
                           href={`/s/${school.id}`}
-                          className="text-sm font-medium text-[#264c93] hover:underline"
+                          className="text-sm font-semibold text-brand hover:underline"
                         >
                           Ouvrir
                         </Link>
@@ -76,7 +77,7 @@ export default async function SuperAdminPage() {
                         >
                           <button
                             type="submit"
-                            className="text-sm text-[#3d5278] hover:underline"
+                            className="text-sm text-muted hover:text-brand hover:underline"
                           >
                             {school.active ? "Désactiver" : "Activer"}
                           </button>
@@ -91,7 +92,7 @@ export default async function SuperAdminPage() {
         </div>
 
         <Card>
-          <h2 className="mb-4 text-lg font-semibold">Nouvelle école</h2>
+          <SectionTitle>Nouvelle école</SectionTitle>
           <form action={createSchoolAction} className="space-y-3">
             <Field label="Nom de l'école">
               <Input name="name" required placeholder="Collège Saint-Martin" />
@@ -105,11 +106,11 @@ export default async function SuperAdminPage() {
             <Field label="Adresse">
               <Input name="address" />
             </Field>
-            <hr className="border-[#c9d7ee]" />
-            <p className="text-sm font-medium text-[#1a3d6e]">
+            <hr className="border-line" />
+            <p className="text-sm font-semibold text-brand">
               Compte administrateur (optionnel)
             </p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Prénom">
                 <Input name="adminFirstName" />
               </Field>

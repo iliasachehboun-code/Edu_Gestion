@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, requireSchoolAccess } from "@/lib/auth";
+import { redirectWithNotice } from "@/lib/flash";
 
 export async function createStudentAction(schoolId: string, formData: FormData) {
   await requireSchoolAccess(schoolId, ["SCHOOL_ADMIN"]);
@@ -43,12 +44,14 @@ export async function createStudentAction(schoolId: string, formData: FormData) 
   }
 
   revalidatePath(`/s/${schoolId}/students`);
+  redirectWithNotice(`/s/${schoolId}/students`, "Élève ajouté.");
 }
 
 export async function deleteStudentAction(schoolId: string, studentId: string) {
   await requireSchoolAccess(schoolId, ["SCHOOL_ADMIN"]);
   await prisma.student.delete({ where: { id: studentId } });
   revalidatePath(`/s/${schoolId}/students`);
+  redirectWithNotice(`/s/${schoolId}/students`, "Élève supprimé.");
 }
 
 export async function createTeacherAction(schoolId: string, formData: FormData) {

@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { requireSchoolAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Card, PageHeader } from "@/components/ui";
+import { schoolTrail } from "@/components/breadcrumbs";
+import { ExportMenu } from "@/components/export-menu";
+import { PageHeader, SectionTitle, StatCard } from "@/components/ui";
 
 export default async function ReportsPage({
   params,
@@ -70,30 +72,46 @@ export default async function ReportsPage({
       <PageHeader
         title="Rapports et statistiques"
         description="Vue d'ensemble de l'établissement."
+        breadcrumbs={schoolTrail(schoolId, {
+          label: "Rapports",
+          path: "/reports",
+        })}
+        actions={
+          <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
+            <ExportMenu
+              label="Élèves"
+              csvHref={`/s/${schoolId}/export/students`}
+              pdfHref={`/s/${schoolId}/export/students/print`}
+            />
+            <ExportMenu
+              label="Caisse"
+              csvHref={`/s/${schoolId}/export/cash-journal`}
+              pdfHref={`/s/${schoolId}/export/cash-journal/print`}
+            />
+          </div>
+        }
       />
       <div className="space-y-8">
         {groups.map((group) => (
           <section key={group.title}>
-            <h2 className="mb-3 text-sm font-semibold tracking-wide text-[#3d5278]">
+            <SectionTitle className="mb-3 font-sans text-sm font-semibold tracking-wide text-muted">
               {group.title}
-            </h2>
+            </SectionTitle>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {group.items.map((item, index) => {
-                const accents = [
-                  "border-l-4 border-l-[#002b5b]",
-                  "border-l-4 border-l-[#e2c200]",
-                  "border-l-4 border-l-[#264c93]",
-                  "border-l-4 border-l-[#8fe3cf]",
-                ];
+                const accents = ["brand", "sun", "sky", "accent"] as const;
                 return (
-                <Link key={item.label} href={`/s/${schoolId}/${item.href}`}>
-                  <Card className={`transition hover:-translate-y-0.5 hover:shadow-md ${accents[index % accents.length]}`}>
-                    <p className="text-sm text-[#3d5278]">{item.label}</p>
-                    <p className="mt-2 font-[family-name:var(--font-fraunces)] text-3xl font-semibold text-[#002b5b]">
-                      {item.value}
-                    </p>
-                  </Card>
-                </Link>
+                  <Link
+                    key={item.label}
+                    href={`/s/${schoolId}/${item.href}`}
+                    className="block min-w-0"
+                  >
+                    <StatCard
+                      label={item.label}
+                      value={item.value}
+                      accent={accents[index % accents.length]}
+                    />
+                  </Link>
                 );
               })}
             </div>

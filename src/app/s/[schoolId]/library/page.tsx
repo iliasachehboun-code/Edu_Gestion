@@ -15,6 +15,7 @@ import {
   createLibraryItemAction,
   deleteLibraryItemAction,
 } from "@/app/actions/admin";
+import { ConfirmSubmit } from "@/components/confirm-submit";
 
 export default async function LibraryPage({
   params,
@@ -63,12 +64,7 @@ export default async function LibraryPage({
                         await deleteLibraryItemAction(schoolId, item.id);
                       }}
                     >
-                      <button
-                        type="submit"
-                        className="text-sm text-red-600 hover:underline"
-                      >
-                        Retirer
-                      </button>
+                      <ConfirmSubmit message="Confirmer ce retrait ?">Retirer</ConfirmSubmit>
                     </form>
                   </Td>
                 </tr>

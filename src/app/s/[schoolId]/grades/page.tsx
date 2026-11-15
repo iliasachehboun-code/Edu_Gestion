@@ -14,6 +14,10 @@ import {
   EmptyState,
 } from "@/components/ui";
 import { createGradeAction, deleteGradeAction } from "@/app/actions/grades";
+import { AutoFilterForm } from "@/components/auto-filter-form";
+import { schoolTrail } from "@/components/breadcrumbs";
+import { ConfirmSubmit } from "@/components/confirm-submit";
+import { GuidedEmpty } from "@/components/guided-empty";
 import { fullName } from "@/lib/utils";
 
 export default async function GradesPage({
@@ -93,60 +97,80 @@ export default async function GradesPage({
         })
       : [];
 
+  const selectedClass = classes.find((c) => c.id === classId);
+
   return (
     <div>
       <PageHeader
         title="Examens et notes"
         description="Contrôles et examens sur 20, par matière et trimestre."
+        breadcrumbs={schoolTrail(
+          schoolId,
+          { label: "Notes", path: "/grades" },
+          selectedClass?.name
+        )}
         actions={
           <Link
             href={`/s/${schoolId}/bulletins`}
-            className="text-sm font-medium text-[#264c93] hover:underline"
+            className="text-sm font-medium text-brand hover:underline"
           >
             Bulletins
           </Link>
         }
       />
 
-      <Card className="mb-6">
-        <form className="grid gap-3 md:grid-cols-4" method="get">
-          <Field label="Classe">
-            <Select name="classId" defaultValue={classId}>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Matière">
-            <Select name="subjectId" defaultValue={subjectId}>
-              {subjects.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Trimestre">
-            <Select name="termId" defaultValue={termId}>
-              {(year?.terms || []).map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <div className="flex items-end">
-            <Button type="submit" variant="secondary" className="w-full">
-              Filtrer
-            </Button>
-          </div>
-        </form>
-      </Card>
+      {!year ? (
+        <div className="mb-6">
+          <GuidedEmpty
+            message="Aucune année scolaire courante. Configurez l'année et ses trimestres pour saisir des notes."
+            actionHref={`/s/${schoolId}/years`}
+            actionLabel="Configurer l'année"
+          />
+        </div>
+      ) : classes.length === 0 ? (
+        <div className="mb-6">
+          <GuidedEmpty
+            message="Aucune classe disponible."
+            actionHref={`/s/${schoolId}/classes`}
+            actionLabel="Créer une classe"
+          />
+        </div>
+      ) : (
+        <Card className="mb-6">
+          <AutoFilterForm className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <Field label="Classe">
+              <Select name="classId" defaultValue={classId}>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Matière">
+              <Select name="subjectId" defaultValue={subjectId}>
+                {subjects.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Trimestre">
+              <Select name="termId" defaultValue={termId}>
+                {(year?.terms || []).map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </AutoFilterForm>
+        </Card>
+      )}
 
-      <div className="grid gap-8 xl:grid-cols-[1.2fr_0.8fr]">
-        <div>
+      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr] xl:gap-8">
+        <div className="min-w-0">
           {grades.length === 0 ? (
             <EmptyState message="Aucune note pour ce filtre." />
           ) : (
@@ -180,12 +204,7 @@ export default async function GradesPage({
                           await deleteGradeAction(schoolId, g.id);
                         }}
                       >
-                        <button
-                          type="submit"
-                          className="text-sm text-red-600 hover:underline"
-                        >
-                          Supprimer
-                        </button>
+                        <ConfirmSubmit message="Confirmer cette suppression ?">Supprimer</ConfirmSubmit>
                       </form>
                     </Td>
                   </tr>
@@ -198,9 +217,15 @@ export default async function GradesPage({
         <Card>
           <h2 className="mb-4 text-lg font-semibold">Ajouter une note</h2>
           {!classId || !subjectId || !termId ? (
-            <p className="text-sm text-[#3d5278]">
+            <p className="text-sm text-muted">
               Configurez classes, matières et trimestres d&apos;abord.
             </p>
+          ) : students.length === 0 ? (
+            <GuidedEmpty
+              message="Aucun élève dans cette classe pour l'année courante."
+              actionHref={`/s/${schoolId}/students`}
+              actionLabel="Gérer les élèves"
+            />
           ) : (
             <form
               action={createGradeAction.bind(null, schoolId)}
@@ -228,7 +253,7 @@ export default async function GradesPage({
               <Field label="Titre">
                 <Input name="title" placeholder="Contrôle chap. 3" />
               </Field>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <Field label="Note">
                   <Input name="score" type="number" step="0.25" required />
                 </Field>

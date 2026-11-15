@@ -19,7 +19,7 @@ export default async function SettingsPage({
         actions={
           <Link
             href={`/s/${schoolId}/years`}
-            className="text-sm font-medium text-[#264c93] hover:underline"
+            className="text-sm font-medium text-brand hover:underline"
           >
             Années scolaires
           </Link>

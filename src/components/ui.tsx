@@ -1,26 +1,34 @@
 import { cn } from "@/lib/utils";
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from "react";
+import { Breadcrumbs, type Crumb } from "@/components/breadcrumbs";
 
 export function PageHeader({
   title,
   description,
   actions,
+  breadcrumbs,
 }: {
   title: string;
   description?: string;
   actions?: ReactNode;
+  breadcrumbs?: Crumb[];
 }) {
   return (
-    <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <h1 className="font-[family-name:var(--font-fraunces)] text-3xl font-semibold tracking-tight text-[#0c2340]">
+    <div className="mb-[var(--density-section)] flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+      <div className="min-w-0">
+        {breadcrumbs ? <Breadcrumbs items={breadcrumbs} /> : null}
+        <h1 className="font-display text-[length:var(--density-title)] font-semibold tracking-tight text-foreground">
           {title}
         </h1>
         {description ? (
-          <p className="mt-1.5 text-sm text-[#3d5278]">{description}</p>
+          <p className="mt-1.5 max-w-2xl text-[length:var(--density-text)] leading-relaxed text-muted">
+            {description}
+          </p>
         ) : null}
       </div>
-      {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+      {actions ? (
+        <div className="flex flex-shrink-0 flex-wrap gap-2">{actions}</div>
+      ) : null}
     </div>
   );
 }
@@ -35,12 +43,31 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-[#c9d7ee] bg-white/95 p-5 shadow-[0_10px_30px_-18px_rgba(0,43,91,0.45)]",
+        "rounded-2xl border border-line bg-surface/95 p-[var(--density-pad)] shadow-[var(--shadow)]",
         className
       )}
     >
       {children}
     </div>
+  );
+}
+
+export function SectionTitle({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <h2
+      className={cn(
+        "mb-4 font-display text-lg font-semibold text-foreground",
+        className
+      )}
+    >
+      {children}
+    </h2>
   );
 }
 
@@ -52,16 +79,17 @@ export function Button({
   variant?: "primary" | "secondary" | "danger" | "ghost";
 }) {
   const variants = {
-    primary: "bg-[#002b5b] text-white hover:bg-[#001e42] shadow-sm",
+    primary:
+      "bg-brand text-white hover:bg-brand-deep shadow-sm",
     secondary:
-      "bg-white text-[#002b5b] border border-[#8fe3cf] hover:bg-[#f3fbf8]",
-    danger: "bg-[#be123c] text-white hover:bg-[#9f1239]",
-    ghost: "bg-transparent text-[#002b5b] hover:bg-[#e5f8f3]",
+      "bg-surface text-brand border border-line-strong hover:bg-brand-soft",
+    danger: "bg-danger text-white hover:bg-[#9f1239]",
+    ghost: "bg-transparent text-brand hover:bg-brand-soft",
   };
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center rounded-xl px-3.5 py-2 text-sm font-semibold transition disabled:opacity-50",
+        "inline-flex min-h-[var(--density-input)] items-center justify-center rounded-[var(--density-radius)] px-3.5 py-[var(--density-input-py)] text-[length:var(--density-text)] font-semibold transition disabled:cursor-not-allowed disabled:opacity-50",
         variants[variant],
         className
       )}
@@ -71,7 +99,7 @@ export function Button({
 }
 
 const fieldClass =
-  "w-full rounded-xl border border-[#b7c9e6] bg-white px-3 py-2 text-sm text-[#0c2340] outline-none focus:border-[#264c93] focus:ring-2 focus:ring-[#8fe3cf]";
+  "w-full min-h-[var(--density-input)] rounded-[var(--density-radius)] border border-line bg-surface px-3 py-[var(--density-input-py)] text-[length:var(--density-text)] text-foreground outline-none transition placeholder:text-muted-soft focus:border-accent focus:ring-2 focus:ring-accent-soft";
 
 export function Input({
   className,
@@ -102,7 +130,7 @@ export function Label({
   return (
     <label
       htmlFor={htmlFor}
-      className="mb-1 block text-sm font-semibold text-[#1a3d6e]"
+      className="mb-1.5 block text-sm font-semibold text-brand"
     >
       {children}
     </label>
@@ -117,7 +145,7 @@ export function Field({
   children: ReactNode;
 }) {
   return (
-    <div>
+    <div className="min-w-0">
       <Label>{label}</Label>
       {children}
     </div>
@@ -126,15 +154,17 @@ export function Field({
 
 export function Table({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-x-auto rounded-2xl border border-[#c9d7ee] bg-white shadow-[0_10px_30px_-18px_rgba(0,43,91,0.35)]">
-      <table className="min-w-full text-left text-sm">{children}</table>
+    <div className="-mx-1 overflow-x-auto rounded-2xl border border-line bg-surface shadow-[var(--shadow)] sm:mx-0">
+      <table className="min-w-full text-left text-[length:var(--density-text)]">
+        {children}
+      </table>
     </div>
   );
 }
 
 export function Th({ children }: { children?: ReactNode }) {
   return (
-    <th className="border-b border-[#d7efe8] bg-[#e5f8f3] px-4 py-3 font-semibold text-[#002b5b]">
+    <th className="whitespace-nowrap border-b border-line bg-brand-soft px-[var(--density-cell-x)] py-[var(--density-cell-y)] font-semibold text-brand">
       {children}
     </th>
   );
@@ -148,7 +178,12 @@ export function Td({
   className?: string;
 }) {
   return (
-    <td className={cn("border-b border-[#f4f8fc] px-4 py-3 text-[#0c2340]", className)}>
+    <td
+      className={cn(
+        "border-b border-brand-soft px-[var(--density-cell-x)] py-[var(--density-cell-y)] align-middle text-foreground",
+        className
+      )}
+    >
       {children}
     </td>
   );
@@ -162,16 +197,16 @@ export function Badge({
   tone?: "neutral" | "success" | "warning" | "danger" | "info";
 }) {
   const tones = {
-    neutral: "bg-[#eef2f7] text-[#3d5278]",
-    success: "bg-[#d7f6ee] text-[#002b5b]",
-    warning: "bg-[#fff4b8] text-[#002b5b]",
-    danger: "bg-[#ffe4e6] text-[#9f1239]",
-    info: "bg-[#e4ecf8] text-[#264c93]",
+    neutral: "bg-[#eef5f2] text-muted",
+    success: "bg-accent-soft text-brand-deep",
+    warning: "bg-sun-soft text-[#92400e]",
+    danger: "bg-danger-soft text-danger",
+    info: "bg-sky-soft text-sky",
   };
   return (
     <span
       className={cn(
-        "inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold",
+        "inline-flex whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold",
         tones[tone]
       )}
     >
@@ -182,8 +217,38 @@ export function Badge({
 
 export function EmptyState({ message }: { message: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-[#8fe3cf] bg-[#f4f8fc] px-6 py-12 text-center text-sm text-[#3d5278]">
+    <div className="rounded-2xl border border-dashed border-line-strong bg-brand-soft/60 px-6 py-12 text-center text-sm text-muted">
       {message}
     </div>
+  );
+}
+
+export function StatCard({
+  label,
+  value,
+  accent = "brand",
+}: {
+  label: string;
+  value: ReactNode;
+  accent?: "brand" | "sun" | "sky" | "accent";
+}) {
+  const accents = {
+    brand: "border-l-brand",
+    sun: "border-l-sun",
+    sky: "border-l-sky",
+    accent: "border-l-accent",
+  };
+  return (
+    <Card
+      className={cn(
+        "border-l-4 transition hover:-translate-y-0.5 hover:shadow-md",
+        accents[accent]
+      )}
+    >
+      <p className="text-sm font-medium text-muted">{label}</p>
+      <p className="mt-2 font-display text-3xl font-semibold text-brand sm:text-4xl">
+        {value}
+      </p>
+    </Card>
   );
 }

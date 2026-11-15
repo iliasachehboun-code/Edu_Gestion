@@ -95,7 +95,7 @@ export default async function ParentDashboard({
                     <h2 className="text-lg font-semibold">
                       {fullName(student.firstName, student.lastName)}
                     </h2>
-                    <p className="text-sm text-[#3d5278]">
+                    <p className="text-sm text-muted">
                       {enrollment
                         ? `${enrollment.class.name} · ${enrollment.academicYear.name}`
                         : "Non inscrit"}
@@ -104,13 +104,13 @@ export default async function ParentDashboard({
                   <div className="flex gap-3 text-sm">
                     <Link
                       href={`/s/${schoolId}/parent/bulletins`}
-                      className="font-medium text-[#264c93] hover:underline"
+                      className="font-medium text-brand hover:underline"
                     >
                       Bulletins
                     </Link>
                     <Link
                       href={`/s/${schoolId}/parent/schedule`}
-                      className="font-medium text-[#264c93] hover:underline"
+                      className="font-medium text-brand hover:underline"
                     >
                       EDT
                     </Link>
@@ -119,11 +119,11 @@ export default async function ParentDashboard({
 
                 <div className="grid gap-6 lg:grid-cols-3">
                   <div>
-                    <h3 className="mb-2 text-sm font-medium text-[#3d5278]">
+                    <h3 className="mb-2 text-sm font-medium text-muted">
                       Dernières notes
                     </h3>
                     {student.grades.length === 0 ? (
-                      <p className="text-sm text-[#5c7094]">—</p>
+                      <p className="text-sm text-muted-soft">—</p>
                     ) : (
                       <ul className="space-y-1 text-sm">
                         {student.grades.map((g) => (
@@ -138,11 +138,11 @@ export default async function ParentDashboard({
                     )}
                   </div>
                   <div>
-                    <h3 className="mb-2 text-sm font-medium text-[#3d5278]">
+                    <h3 className="mb-2 text-sm font-medium text-muted">
                       Absences / retards
                     </h3>
                     {student.attendances.length === 0 ? (
-                      <p className="text-sm text-[#5c7094]">Aucune</p>
+                      <p className="text-sm text-muted-soft">Aucune</p>
                     ) : (
                       <ul className="space-y-1 text-sm">
                         {student.attendances.map((a) => (
@@ -154,11 +154,11 @@ export default async function ParentDashboard({
                     )}
                   </div>
                   <div>
-                    <h3 className="mb-2 text-sm font-medium text-[#3d5278]">
+                    <h3 className="mb-2 text-sm font-medium text-muted">
                       Frais
                     </h3>
                     {student.studentFees.length === 0 ? (
-                      <p className="text-sm text-[#5c7094]">—</p>
+                      <p className="text-sm text-muted-soft">—</p>
                     ) : (
                       <ul className="space-y-1 text-sm">
                         {student.studentFees.map((f) => {

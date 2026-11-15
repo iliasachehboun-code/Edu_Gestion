@@ -12,6 +12,9 @@ import {
   EmptyState,
 } from "@/components/ui";
 import { createClassAction, deleteClassAction } from "@/app/actions/academic";
+import { schoolTrail } from "@/components/breadcrumbs";
+import { ConfirmSubmit } from "@/components/confirm-submit";
+import { GuidedEmpty } from "@/components/guided-empty";
 
 export default async function ClassesPage({
   params,
@@ -45,11 +48,24 @@ export default async function ClassesPage({
       <PageHeader
         title="Classes et groupes"
         description="Organisation des classes et des effectifs."
+        breadcrumbs={schoolTrail(schoolId, {
+          label: "Classes",
+          path: "/classes",
+        })}
       />
-      <div className="grid gap-8 lg:grid-cols-[1.3fr_0.7fr]">
-        <div>
+      {!year ? (
+        <div className="mb-6">
+          <GuidedEmpty
+            message="Aucune année scolaire courante. Configurez-en une pour suivre les effectifs par année."
+            actionHref={`/s/${schoolId}/years`}
+            actionLabel="Configurer l'année"
+          />
+        </div>
+      ) : null}
+      <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr] lg:gap-8">
+        <div className="min-w-0">
           {classes.length === 0 ? (
-            <EmptyState message="Aucune classe." />
+            <EmptyState message="Aucune classe. Utilisez le formulaire pour en créer une." />
           ) : (
             <Table>
               <thead>
@@ -79,12 +95,7 @@ export default async function ClassesPage({
                           await deleteClassAction(schoolId, c.id);
                         }}
                       >
-                        <button
-                          type="submit"
-                          className="text-sm text-red-600 hover:underline"
-                        >
-                          Supprimer
-                        </button>
+                        <ConfirmSubmit message="Confirmer cette suppression ?">Supprimer</ConfirmSubmit>
                       </form>
                     </Td>
                   </tr>

@@ -97,7 +97,7 @@ export default async function AdmissionsPage({
         <Card>
           <h2 className="mb-4 text-lg font-semibold">Nouvelle inscription</h2>
           {!year ? (
-            <p className="text-sm text-[#3d5278]">
+            <p className="text-sm text-muted">
               Définissez une année scolaire courante dans les paramètres.
             </p>
           ) : (

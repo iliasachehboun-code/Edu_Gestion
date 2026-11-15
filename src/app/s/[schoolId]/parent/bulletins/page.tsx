@@ -69,7 +69,7 @@ export default async function ParentBulletinsPage({
                 <Td>
                   <Link
                     href={`/s/${schoolId}/parent/bulletins/${c.id}`}
-                    className="text-sm font-medium text-[#264c93] hover:underline"
+                    className="text-sm font-medium text-brand hover:underline"
                   >
                     Consulter
                   </Link>
