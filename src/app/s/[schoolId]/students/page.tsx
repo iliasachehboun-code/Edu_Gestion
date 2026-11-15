@@ -137,7 +137,7 @@ export default async function StudentsPage({
         <div className="mb-6">
           <GuidedEmpty
             message="Aucune classe n'est encore créée. Ajoutez une classe pour filtrer et inscrire les élèves."
-            actionHref={`/s/${schoolId}/classes`}
+            actionHref={`/s/${schoolId}/admissions`}
             actionLabel="Créer une classe"
           />
         </div>

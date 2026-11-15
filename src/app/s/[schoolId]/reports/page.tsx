@@ -45,7 +45,7 @@ export default async function ReportsPage({
       items: [
         { label: "Élèves actifs", value: students, href: "students" },
         { label: "Enseignants", value: teachers, href: "teachers" },
-        { label: "Classes", value: classes, href: "classes" },
+        { label: "Classes", value: classes, href: "admissions" },
         { label: "Matières", value: subjects, href: "subjects" },
       ],
     },

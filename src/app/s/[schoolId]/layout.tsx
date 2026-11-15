@@ -102,9 +102,9 @@ export default async function SchoolLayout({
         items: [
           { href: `${base}/students`, label: "Élèves" },
           { href: `${base}/admissions`, label: "Admissions et inscriptions" },
-          { href: `${base}/classes`, label: "Classes et groupes" },
           { href: `${base}/subjects`, label: "Matières et programmes" },
           { href: `${base}/teachers`, label: "Enseignants et personnel" },
+
         ],
       },
       {
