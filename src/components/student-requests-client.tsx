@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Badge, Button, Card, Table, Td, Th } from "@/components/ui";
+import { useRouter } from "next/navigation";
+import { Button, Table, Td, Th } from "@/components/ui";
 import { createAdministrativeRequestAction } from "@/app/actions/requests";
 import { formatDate } from "@/lib/utils";
 
@@ -36,36 +37,53 @@ export function StudentRequestsClient({
   schoolId: string;
   initialRequests: RequestItem[];
 }) {
-  const [requests, setRequests] = useState<RequestItem[]>(initialRequests);
+  const router = useRouter();
+  const [optimisticRequests, setOptimisticRequests] = useState<RequestItem[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [notification, setNotification] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const [type, setType] = useState("CARNET_CORRESPONDANCE");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
 
+  const requests: RequestItem[] = [
+    ...optimisticRequests.filter(
+      (opt) => !initialRequests.some((srv) => srv.id === opt.id)
+    ),
+    ...initialRequests,
+  ];
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setError(null);
     const formData = new FormData(e.currentTarget);
 
     startTransition(async () => {
-      const res = await createAdministrativeRequestAction(schoolId, formData);
-      if (res?.success) {
-        const newReq: RequestItem = {
-          id: res.requestId || Date.now().toString(),
-          type,
-          title,
-          description,
-          status: "EN_ATTENTE",
-          createdAt: new Date().toISOString(),
-        };
-        setRequests([newReq, ...requests]);
-        setIsModalOpen(false);
-        setTitle("");
-        setDescription("");
-        setNotification("Votre demande a été transmise au secrétariat avec succès !");
-        setTimeout(() => setNotification(null), 6000);
+      try {
+        const res = await createAdministrativeRequestAction(schoolId, formData);
+        if (res?.success) {
+          const newReq: RequestItem = {
+            id: res.requestId || Date.now().toString(),
+            type,
+            title,
+            description,
+            status: "EN_ATTENTE",
+            createdAt: new Date().toISOString(),
+          };
+          setOptimisticRequests((prev) => [newReq, ...prev]);
+          setIsModalOpen(false);
+          setTitle("");
+          setDescription("");
+          setNotification("Votre demande a été transmise au secrétariat avec succès !");
+          router.refresh();
+          setTimeout(() => setNotification(null), 6000);
+        } else {
+          setError(res?.error || "Impossible d'enregistrer votre demande.");
+        }
+      } catch {
+        setError("Une erreur est survenue lors de l'envoi de votre demande.");
       }
     });
   };
@@ -83,7 +101,7 @@ export function StudentRequestsClient({
         return (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e4ecf8] px-3 py-1 text-xs font-bold text-[#264c93]">
             <span className="h-2 w-2 rounded-full bg-[#2563eb] animate-pulse"></span>
-            En cours d'instruction
+            En cours d&apos;instruction
           </span>
         );
       case "REJETEE":
@@ -113,7 +131,7 @@ export function StudentRequestsClient({
       {notification && (
         <div className="flex items-center justify-between rounded-2xl border border-[#8fe3cf] bg-[#d7f6ee] p-4 text-xs font-bold text-[#002b5b] shadow-sm animate-in fade-in">
           <span>🎉 {notification}</span>
-          <button onClick={() => setNotification(null)}>✕</button>
+          <button type="button" onClick={() => setNotification(null)}>✕</button>
         </div>
       )}
 
@@ -124,7 +142,7 @@ export function StudentRequestsClient({
             Historique de vos démarches
           </h2>
           <p className="text-xs text-[#5a7199]">
-            Suivez l'état d'avancement de vos demandes sans vous déplacer au guichet.
+            Suivez l&apos;état d&apos;avancement de vos demandes sans vous déplacer au guichet.
           </p>
         </div>
 
@@ -239,17 +257,26 @@ export function StudentRequestsClient({
                   Nouvelle Demande Scolaire
                 </h3>
                 <p className="mt-1 text-xs text-[#5a7199]">
-                  Transmise directement à la Vie Scolaire et à la Direction de l'établissement
+                  Transmise directement à la Vie Scolaire et à la Direction de l&apos;établissement
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setIsModalOpen(false)}
+                onClick={() => {
+                  setError(null);
+                  setIsModalOpen(false);
+                }}
                 className="rounded-lg p-1.5 text-[#5a7199] hover:bg-[#f4f8fc]"
               >
                 ✕
               </button>
             </div>
+
+            {error && (
+              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700">
+                ❌ {error}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               <div>

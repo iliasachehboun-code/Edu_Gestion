@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { getEvaluationI18n } from "@/lib/student-evaluations-i18n";
 
 export function EvaluationSubjectFilter({
   schoolId,
@@ -29,11 +30,14 @@ export function EvaluationSubjectFilter({
       className="rounded-xl border border-[#b7c9e6] bg-white px-3 py-1.5 text-xs font-semibold text-[#0c2340] outline-none focus:border-[#264c93] focus:ring-2 focus:ring-[#8fe3cf]"
     >
       <option value="">Toutes les matières</option>
-      {subjects.map((s) => (
-        <option key={s.id} value={s.id}>
-          {s.name}
-        </option>
-      ))}
+      {subjects.map((s) => {
+        const i18n = getEvaluationI18n(s.name);
+        return (
+          <option key={s.id} value={s.id}>
+            {i18n.filterDisplayName}
+          </option>
+        );
+      })}
     </select>
   );
 }

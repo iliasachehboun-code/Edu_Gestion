@@ -1,9 +1,16 @@
 import { requireSchoolAccess } from "@/lib/auth";
 import { getStudentForUser } from "@/lib/student";
 import { prisma } from "@/lib/prisma";
-import { EmptyState, PageHeader } from "@/components/ui";
+import { EmptyState } from "@/components/ui";
 import Link from "next/link";
 import { EvaluationSubjectFilter } from "@/components/evaluation-subject-filter";
+import {
+  filterUpcomingEvaluations,
+  getDaysUntil,
+  getEvaluationQueryFloor,
+} from "@/lib/student-evaluations";
+import { getClassRelevantSubjects } from "@/lib/student-grades";
+import { getEvaluationI18n } from "@/lib/student-evaluations-i18n";
 
 function getSubjectTheme(subjectName: string) {
   const name = subjectName.toLowerCase();
@@ -47,7 +54,7 @@ function getSubjectTheme(subjectName: string) {
       icon: "🔬",
     };
   }
-  if (name.includes("angl")) {
+  if (name.includes("angl") || name.includes("english")) {
     return {
       bg: "bg-indigo-50/70",
       border: "border-indigo-200",
@@ -55,6 +62,26 @@ function getSubjectTheme(subjectName: string) {
       calendarHeader: "bg-indigo-600 text-white",
       text: "text-indigo-900",
       icon: "🇬🇧",
+    };
+  }
+  if (name.includes("arab") || name.includes("عرب")) {
+    return {
+      bg: "bg-teal-50/70",
+      border: "border-teal-200",
+      badge: "bg-teal-700 text-white",
+      calendarHeader: "bg-teal-700 text-white",
+      text: "text-teal-900",
+      icon: "📖",
+    };
+  }
+  if (name.includes("espagn") || name.includes("spanis")) {
+    return {
+      bg: "bg-orange-50/70",
+      border: "border-orange-200",
+      badge: "bg-orange-600 text-white",
+      calendarHeader: "bg-orange-600 text-white",
+      text: "text-orange-900",
+      icon: "🇪🇸",
     };
   }
   if (name.includes("phys")) {
@@ -117,21 +144,17 @@ export default async function StudentEvaluationsPage({
     );
   }
 
-  const subjects = await prisma.subject.findMany({
-    where: { schoolId },
-    orderBy: { name: "asc" },
-  });
+  const subjects = await getClassRelevantSubjects(schoolId, student.id, classId);
 
   const now = new Date();
-  const todayMidnight = new Date(now);
-  todayMidnight.setHours(0, 0, 0, 0);
+  const evalQueryFloor = getEvaluationQueryFloor(now);
 
   // Requête en base : filtre automatiquement pour ne récupérer que les dates actuelles et futures
   const evaluations = await prisma.evaluation.findMany({
     where: {
       schoolId,
       classId,
-      date: { gte: todayMidnight },
+      date: { gte: evalQueryFloor },
       ...(subjectId ? { subjectId } : {}),
     },
     include: {
@@ -143,57 +166,9 @@ export default async function StudentEvaluationsPage({
   });
 
   // Suppression / Retrait automatique dès que la date ou l'heure de fin de l'épreuve est passée
-  const displayedEvals = evaluations.filter((ev) => {
-    const evDate = new Date(ev.date);
-    evDate.setHours(0, 0, 0, 0);
-
-    // Si la date est passée, disparaît automatiquement
-    if (evDate < todayMidnight) return false;
-
-    // Si le contrôle a lieu aujourd'hui, vérifier si l'heure de fin de l'épreuve est dépassée
-    if (evDate.getTime() === todayMidnight.getTime() && ev.startTime) {
-      const cleanTime = ev.startTime.replace("h", ":").trim();
-      const parts = cleanTime.split(":");
-      const hours = parseInt(parts[0], 10);
-      const minutes = parseInt(parts[1] || "0", 10);
-
-      if (!isNaN(hours)) {
-        const endDateTime = new Date(now);
-        endDateTime.setHours(hours, minutes, 0, 0);
-        endDateTime.setMinutes(endDateTime.getMinutes() + (ev.durationMin || 55));
-
-        // Dès que l'épreuve est terminée, elle disparaît automatiquement de la vue élève
-        if (now > endDateTime) {
-          return false;
-        }
-      }
-    }
-
-    return true;
-  });
+  const displayedEvals = filterUpcomingEvaluations(evaluations, now);
 
   const nextExam = displayedEvals[0] || null;
-
-  const getCountdownLabel = (date: Date) => {
-    const t = new Date(date);
-    t.setHours(0, 0, 0, 0);
-    const diffTime = t.getTime() - todayMidnight.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return { label: "Aujourd'hui !", color: "bg-red-500 text-white font-black animate-pulse" };
-    if (diffDays === 1) return { label: "Demain !", color: "bg-amber-500 text-white font-bold" };
-    if (diffDays === 2) return { label: "Dans 2 jours", color: "bg-blue-600 text-white font-bold" };
-    return { label: `Dans ${diffDays} jours`, color: "bg-[#e8f1fc] text-[#002b5b] font-bold" };
-  };
-
-  const getDayParts = (date: Date) => {
-    const d = new Date(date);
-    const dayName = d.toLocaleDateString("fr-FR", { weekday: "short" }).toUpperCase().replace(".", "");
-    const dayNum = d.getDate();
-    const monthName = d.toLocaleDateString("fr-FR", { month: "short" }).toUpperCase().replace(".", "");
-    const fullDate = d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
-    return { dayName, dayNum, monthName, fullDate };
-  };
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -204,7 +179,7 @@ export default async function StudentEvaluationsPage({
             📅 Mes Contrôles & Examens
           </h1>
           <p className="text-xs text-[#5a7199] mt-1">
-            Classe de {enrollment.class.name} · Tout ce que tu dois réviser et préparer
+            Classe de {enrollment.class.name} · Calendrier personnalisé selon la langue de chaque matière
           </p>
         </div>
 
@@ -217,43 +192,56 @@ export default async function StudentEvaluationsPage({
         </Link>
       </div>
 
-      {/* Bannière "Prochain contrôle" - Ultra claire & motivante */}
-      {nextExam ? (
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#002b5b] via-[#1a4a82] to-[#002b5b] p-5 text-white shadow-md">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#8fe3cf] text-2xl text-[#002b5b]">
-                {getSubjectTheme(nextExam.subject.name).icon}
-              </span>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#8fe3cf]">
-                    Prochain contrôle
-                  </span>
-                  <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black text-white">
-                    {getCountdownLabel(nextExam.date).label}
-                  </span>
+      {/* Bannière "Prochain contrôle" - Multilingue selon la matière */}
+      {nextExam ? (() => {
+        const nextI18n = getEvaluationI18n(nextExam.subject.name);
+        const nextTheme = getSubjectTheme(nextExam.subject.name);
+        const nextDays = getDaysUntil(nextExam.date, now);
+        const nextCountdown = nextI18n.getCountdown(nextDays);
+        const nextParts = nextI18n.formatDayParts(nextExam.date);
+
+        return (
+          <div
+            className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#002b5b] via-[#1a4a82] to-[#002b5b] p-5 text-white shadow-md"
+            dir={nextI18n.dir}
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#8fe3cf] text-2xl text-[#002b5b]">
+                  {nextTheme.icon}
+                </span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#8fe3cf]">
+                      {nextI18n.nextBadge}
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] ${nextCountdown.color}`}>
+                      {nextCountdown.label}
+                    </span>
+                  </div>
+                  <h2 className="text-lg font-black text-white sm:text-xl">
+                    {nextI18n.subjectDisplayName} : {nextExam.title}
+                  </h2>
+                  <p className="text-xs text-[#d7e6fb] mt-0.5 flex flex-wrap items-center gap-3 font-medium">
+                    <span>📅 {nextParts.fullDate}</span>
+                    <span>
+                      ⏰ {nextExam.startTime ? nextI18n.timeLabel(nextExam.startTime, nextExam.durationMin) : nextI18n.durationLabel(nextExam.durationMin)}
+                    </span>
+                    {nextExam.room && <span>📍 {nextI18n.roomLabel(nextExam.room)}</span>}
+                    <span>⚖️ {nextI18n.coeffLabel} {nextExam.coefficient}</span>
+                  </p>
                 </div>
-                <h2 className="text-lg font-black text-white sm:text-xl">
-                  {nextExam.subject.name} : {nextExam.title}
-                </h2>
-                <p className="text-xs text-[#d7e6fb] mt-0.5 flex flex-wrap items-center gap-3 font-medium">
-                  <span>📅 {getDayParts(nextExam.date).fullDate}</span>
-                  <span>⏰ {nextExam.startTime || "09h00"} ({nextExam.durationMin} min)</span>
-                  {nextExam.room && <span>📍 {nextExam.room}</span>}
-                  <span>⚖️ Coeff. {nextExam.coefficient}</span>
-                </p>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-2 self-end sm:self-center">
+                <span className="rounded-xl bg-white/10 px-3 py-1.5 text-xs font-bold text-[#8fe3cf]">
+                  {nextI18n.upcomingCountLabel(displayedEvals.length)}
+                </span>
               </div>
             </div>
-
-            <div className="flex shrink-0 items-center gap-2 self-end sm:self-center">
-              <span className="rounded-xl bg-white/10 px-3 py-1.5 text-xs font-bold text-[#8fe3cf]">
-                {displayedEvals.length} contrôle{displayedEvals.length > 1 ? "s" : ""} à venir
-              </span>
-            </div>
           </div>
-        </div>
-      ) : null}
+        );
+      })() : null}
 
       {/* Barre d'en-tête de liste : Titre & Sélecteur de matière */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-[#c9d7ee] pb-3">
@@ -264,7 +252,7 @@ export default async function StudentEvaluationsPage({
           </span>
         </div>
 
-        {/* Sélecteur de matière épuré */}
+        {/* Sélecteur de matière */}
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-[#5a7199]">Filtrer par matière :</span>
           <EvaluationSubjectFilter
@@ -275,7 +263,7 @@ export default async function StudentEvaluationsPage({
         </div>
       </div>
 
-      {/* Liste des Évaluations - Format Agenda simple & aéré */}
+      {/* Liste des Évaluations - Chaque épreuve suit sa langue dédiée */}
       {displayedEvals.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[#8fe3cf] bg-[#f4f8fc] px-6 py-12 text-center text-sm font-medium text-[#002b5b]">
           🎉 Aucun contrôle programmé pour le moment. Tout est à jour !
@@ -283,17 +271,24 @@ export default async function StudentEvaluationsPage({
       ) : (
         <div className="space-y-3.5">
           {displayedEvals.map((ev) => {
+            const i18n = getEvaluationI18n(ev.subject.name);
             const theme = getSubjectTheme(ev.subject.name);
-            const countdown = getCountdownLabel(ev.date);
-            const { dayName, dayNum, monthName } = getDayParts(ev.date);
+            const diffDays = getDaysUntil(ev.date, now);
+            const countdown = i18n.getCountdown(diffDays);
+            const { dayName, dayNum, monthName } = i18n.formatDayParts(ev.date);
 
             return (
               <div
                 key={ev.id}
+                dir={i18n.dir}
                 className="flex flex-col sm:flex-row items-stretch rounded-2xl border border-[#c9d7ee] bg-white hover:border-[#002b5b] hover:shadow-md transition overflow-hidden shadow-xs"
               >
-                {/* Bloc Date Calendrier (Très visuel, style agenda collège) */}
-                <div className="flex sm:flex-col items-center justify-between sm:justify-center p-3.5 sm:w-28 shrink-0 text-center border-b sm:border-b-0 sm:border-r border-[#eef2f7] bg-[#f4f8fc]">
+                {/* Bloc Date Calendrier (localisé selon la langue de la matière) */}
+                <div
+                  className={`flex sm:flex-col items-center justify-between sm:justify-center p-3.5 sm:w-28 shrink-0 text-center border-b sm:border-b-0 ${
+                    i18n.dir === "rtl" ? "sm:border-l" : "sm:border-r"
+                  } border-[#eef2f7] bg-[#f4f8fc]`}
+                >
                   <div className="flex sm:flex-col items-center gap-2 sm:gap-0">
                     <span className="text-[11px] font-black uppercase tracking-wider text-[#5a7199]">
                       {dayName}
@@ -306,7 +301,7 @@ export default async function StudentEvaluationsPage({
                     </span>
                   </div>
 
-                  {/* Pastille Décompte */}
+                  {/* Pastille Décompte dans la langue de la matière */}
                   <span
                     className={`mt-2 rounded-full px-2 py-0.5 text-[10px] ${countdown.color}`}
                   >
@@ -315,29 +310,25 @@ export default async function StudentEvaluationsPage({
                 </div>
 
                 {/* Corps de l'épreuve */}
-                <div className="flex-1 p-4 sm:p-5 flex flex-col justify-between space-y-3">
+                <div
+                  className="flex-1 p-4 sm:p-5 flex flex-col justify-between space-y-3"
+                >
                   <div>
-                    {/* Badge Matière + Type d'épreuve */}
+                    {/* Badge Matière + Type d'épreuve localisé */}
                     <div className="flex flex-wrap items-center gap-2">
                       <span
                         className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-0.5 text-xs font-bold ${theme.badge}`}
                       >
                         <span>{theme.icon}</span>
-                        <span>{ev.subject.name}</span>
+                        <span>{i18n.subjectDisplayName}</span>
                       </span>
 
                       <span className="rounded-md bg-[#eef2f7] px-2 py-0.5 text-[11px] font-bold text-[#3d5278]">
-                        {ev.type === "DEVOIR_COMMUN"
-                          ? "Devoir Commun"
-                          : ev.type === "TP_NOTE"
-                          ? "TP Noté"
-                          : ev.type === "INTERROGATION"
-                          ? "Interrogation"
-                          : "Contrôle Continu"}
+                        {i18n.evalTypes[ev.type] || "Evaluation"}
                       </span>
 
                       <span className="text-[11px] font-semibold text-[#5a7199]">
-                        Coeff. {ev.coefficient}
+                        {i18n.coeffLabel} {ev.coefficient}
                       </span>
                     </div>
 
@@ -346,28 +337,28 @@ export default async function StudentEvaluationsPage({
                       {ev.title}
                     </h3>
 
-                    {/* Heure, Durée, Salle */}
+                    {/* Heure, Durée, Salle dans la langue du devoir */}
                     <div className="mt-2 flex flex-wrap items-center gap-3 text-xs font-bold text-[#264c93]">
                       <span className="inline-flex items-center gap-1">
-                        ⏰ <span>{ev.startTime || "09h00"}</span>
-                        <span className="font-normal text-[#5a7199]">
-                          ({ev.durationMin} minutes)
-                        </span>
+                        ⏰{" "}
+                        {ev.startTime
+                          ? i18n.timeLabel(ev.startTime, ev.durationMin)
+                          : i18n.durationLabel(ev.durationMin)}
                       </span>
                       {ev.room && (
                         <span className="inline-flex items-center gap-1">
-                          📍 <span>{ev.room}</span>
+                          📍 <span>{i18n.roomLabel(ev.room)}</span>
                         </span>
                       )}
                     </div>
                   </div>
 
-                  {/* Consignes simples & Ce qu'il faut réviser */}
+                  {/* Consignes & Programme à réviser (titres et présentation adaptés à la matière) */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs pt-1">
                     {ev.topics && (
                       <div className="rounded-xl bg-[#f8fafc] border border-[#eef2f7] p-2.5 text-[#3d5278]">
                         <span className="font-bold text-[#002b5b] block mb-0.5">
-                          📖 À réviser :
+                          {i18n.toReviseHeader}
                         </span>
                         <span>{ev.topics}</span>
                       </div>
@@ -376,7 +367,7 @@ export default async function StudentEvaluationsPage({
                     {ev.instructions && (
                       <div className="rounded-xl bg-[#fff8f8] border border-[#ffe4e6] p-2.5 text-[#9f1239]">
                         <span className="font-bold text-[#be123c] block mb-0.5">
-                          🎒 À ne pas oublier :
+                          {i18n.instructionsHeader}
                         </span>
                         <span>{ev.instructions}</span>
                       </div>

@@ -4,7 +4,6 @@ import { requireSchoolAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getStudentForUser } from "@/lib/student";
 import { Card, Table, Td, Th, Badge } from "@/components/ui";
-import { PrintButton } from "@/components/print-button";
 import { fullName, round1 } from "@/lib/utils";
 
 export default async function StudentBulletinDetailPage({
@@ -61,7 +60,6 @@ export default async function StudentBulletinDetailPage({
         >
           &larr; Retour à mes notes
         </Link>
-        <PrintButton />
       </div>
 
       <Card className="mx-auto max-w-4xl p-8">

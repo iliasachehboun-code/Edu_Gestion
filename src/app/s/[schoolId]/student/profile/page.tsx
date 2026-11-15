@@ -21,25 +21,39 @@ export default async function StudentProfilePage({
     return <EmptyState message="Dossier élève introuvable." />;
   }
 
-  // Récupération de l'inscription et des parents rattachés
+  // Récupération de l'inscription, du compte associé et des parents rattachés
   const enrollment = student.enrollments[0];
-  const parentLinks = await prisma.parentStudent.findMany({
-    where: { studentId: student.id },
-    include: {
-      parent: {
-        include: { user: true },
+  const [parentLinks, studentAccount] = await Promise.all([
+    prisma.parentStudent.findMany({
+      where: { studentId: student.id },
+      include: {
+        parent: {
+          include: { user: true },
+        },
       },
-    },
-  });
+    }),
+    student.userId
+      ? prisma.user.findUnique({
+          where: { id: student.userId },
+          select: { email: true },
+        })
+      : null,
+  ]);
 
-  // Calcul de l'âge
+  const displayEmail = studentAccount?.email || student.email || "Non renseigné";
+
+  // Calcul exact de l'âge
   const birthDate = student.dateOfBirth ? new Date(student.dateOfBirth) : null;
-  const age = birthDate
-    ? Math.floor(
-        (new Date().getTime() - birthDate.getTime()) /
-          (365.25 * 24 * 60 * 60 * 1000)
-      )
-    : null;
+  let age: number | null = null;
+  if (birthDate) {
+    const today = new Date();
+    let years = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      years--;
+    }
+    age = years >= 0 ? years : null;
+  }
 
   return (
     <div className="space-y-8">
@@ -64,27 +78,19 @@ export default async function StudentProfilePage({
               </span>
             </div>
             <p className="text-sm text-[#8fe3cf] mt-1 font-medium">
-              Matricule : {student.matricule || "STU-001"} · Classe de{" "}
-              {enrollment?.class.name || "6ème A"}
+              Matricule : {student.matricule || "Non attribué"} ·{" "}
+              {enrollment ? `Classe de ${enrollment.class.name}` : "Aucune classe"}
             </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Link href={`/s/${schoolId}/student/documents/certificat-scolarite`}>
-            <button
-              type="button"
-              className="rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 px-4 py-2 text-xs font-bold text-white transition active:scale-95"
-            >
-              📜 Certificat de scolarité
-            </button>
-          </Link>
-          <Link href={`/s/${schoolId}/student/requests`}>
+          <Link href={`/s/${schoolId}/student/profile/password`}>
             <button
               type="button"
               className="rounded-xl bg-[#8fe3cf] hover:bg-[#7ed1be] px-4 py-2 text-xs font-bold text-[#002b5b] transition active:scale-95 shadow-sm"
             >
-              ✉️ Démarche Vie Scolaire
+              🔒 Modifier mon mot de passe
             </button>
           </Link>
         </div>
@@ -97,7 +103,7 @@ export default async function StudentProfilePage({
           <div className="flex items-center gap-2 border-b border-[#eef2f7] pb-3">
             <span className="text-xl">🪪</span>
             <h2 className="text-base font-bold text-[#0c2340]">
-              État Civil & Coordonnées de l'Élève
+              État Civil &amp; Coordonnées de l&apos;Élève
             </h2>
           </div>
 
@@ -124,8 +130,14 @@ export default async function StudentProfilePage({
                 Date de naissance :
               </span>
               <span className="font-semibold text-[#0c2340]">
-                {birthDate ? formatDate(birthDate) : "12 avril 2014"}
-                {age !== null ? ` (${age} ans)` : " (12 ans)"}
+                {birthDate ? (
+                  <>
+                    {formatDate(birthDate)}
+                    {age !== null ? ` (${age} ans)` : ""}
+                  </>
+                ) : (
+                  "Non renseignée"
+                )}
               </span>
             </div>
             <div>
@@ -136,37 +148,45 @@ export default async function StudentProfilePage({
                 {student.gender === "F"
                   ? "Féminin (Fille)"
                   : student.gender === "M"
-                  ? "Masculin (Garçon)"
-                  : "Non renseigné"}
+                    ? "Masculin (Garçon)"
+                    : "Non renseigné"}
               </span>
             </div>
 
             <div className="col-span-2">
               <span className="block font-bold uppercase tracking-wider text-[#5a7199] text-[10px]">
-                Identifiant / Email de connexion à l'Espace Élève :
+                Identifiant / Email de connexion à l&apos;Espace Élève :
               </span>
               <span className="font-mono font-bold text-[#002b5b] bg-[#f0f4f9] px-2.5 py-1 rounded-lg inline-block mt-0.5">
-                {user.email}
+                {displayEmail}
               </span>
             </div>
 
-            <div className="col-span-2">
+            <div>
+              <span className="block font-bold uppercase tracking-wider text-[#5a7199] text-[10px]">
+                Téléphone :
+              </span>
+              <span className="font-medium text-[#3d5278]">
+                {student.phone || "Non renseigné"}
+              </span>
+            </div>
+            <div>
               <span className="block font-bold uppercase tracking-wider text-[#5a7199] text-[10px]">
                 Adresse de résidence :
               </span>
               <span className="font-medium text-[#3d5278]">
-                {student.address || "14 rue de la République, 75011 Paris"}
+                {student.address || "Non renseignée"}
               </span>
             </div>
           </div>
         </Card>
 
-        {/* 2. Scolarité & Vie Scolaire */}
+        {/* 2. Scolarité & Dossier */}
         <Card className="p-6 space-y-4">
           <div className="flex items-center gap-2 border-b border-[#eef2f7] pb-3">
             <span className="text-xl">🏫</span>
             <h2 className="text-base font-bold text-[#0c2340]">
-              Scolarité & Régime de Vie Scolaire
+              Scolarité &amp; Inscription
             </h2>
           </div>
 
@@ -175,16 +195,14 @@ export default async function StudentProfilePage({
               <span className="block font-bold uppercase tracking-wider text-[#5a7199] text-[10px]">
                 Établissement scolaire :
               </span>
-              <span className="font-bold text-[#0c2340]">
-                {school.name}
-              </span>
+              <span className="font-bold text-[#0c2340]">{school.name}</span>
             </div>
             <div>
               <span className="block font-bold uppercase tracking-wider text-[#5a7199] text-[10px]">
                 Année Scolaire :
               </span>
               <span className="font-bold text-[#0c2340]">
-                {enrollment?.academicYear.name || "2025-2026"}
+                {enrollment?.academicYear.name || "Non définie"}
               </span>
             </div>
 
@@ -192,28 +210,36 @@ export default async function StudentProfilePage({
               <span className="block font-bold uppercase tracking-wider text-[#5a7199] text-[10px]">
                 Classe inscrite :
               </span>
-              <span className="inline-flex items-center gap-1.5 font-bold text-[#002b5b] bg-[#e4ecf8] px-2.5 py-0.5 rounded-md">
-                🎓 {enrollment?.class.name || "6ème A"}
+              <span className="inline-flex items-center gap-1.5 font-bold text-[#002b5b] bg-[#e4ecf8] px-2.5 py-0.5 rounded-md mt-0.5">
+                🎓 {enrollment?.class.name || "Non inscrit(e)"}
               </span>
             </div>
             <div>
               <span className="block font-bold uppercase tracking-wider text-[#5a7199] text-[10px]">
-                Régime Cantine :
+                Statut du dossier :
               </span>
-              <span className="inline-flex items-center gap-1.5 font-bold text-[#0c2340] bg-[#d7f6ee] text-[#002b5b] px-2.5 py-0.5 rounded-md">
-                🍽️ Demi-pensionnaire (4 jours)
-              </span>
+              <div className="mt-0.5">
+                <Badge tone={student.active ? "success" : "danger"}>
+                  {student.active ? "Élève actif" : "Dossier inactif"}
+                </Badge>
+              </div>
             </div>
 
-            <div className="col-span-2">
+            <div>
               <span className="block font-bold uppercase tracking-wider text-[#5a7199] text-[10px]">
-                Régime d'autorisation de sortie (Carnet de correspondance) :
+                Numéro Matricule :
               </span>
-              <div className="mt-1 rounded-xl bg-[#f4f8fc] border border-[#c9d7ee] p-3 text-xs text-[#0c2340]">
-                <span className="font-bold text-[#002b5b]">Régime Vert : </span>
-                L'élève est autorisé(e) à quitter l'établissement à la fin de son
-                dernier cours de la journée ou en cas d'absence d'un professeur en fin d'après-midi.
-              </div>
+              <span className="font-mono font-bold text-[#0c2340]">
+                {student.matricule || "Non attribué"}
+              </span>
+            </div>
+            <div>
+              <span className="block font-bold uppercase tracking-wider text-[#5a7199] text-[10px]">
+                Date d&apos;inscription :
+              </span>
+              <span className="font-semibold text-[#0c2340]">
+                {formatDate(enrollment?.createdAt || student.createdAt)}
+              </span>
             </div>
           </div>
         </Card>
@@ -224,33 +250,12 @@ export default async function StudentProfilePage({
         <div className="flex items-center gap-2 border-b border-[#eef2f7] pb-3">
           <span className="text-xl">👨‍👩‍👦</span>
           <h2 className="text-base font-bold text-[#0c2340]">
-            Responsables Légaux & Personnes à Prévenir en Urgence
+            Responsables Légaux &amp; Personnes à Prévenir
           </h2>
         </div>
 
         {parentLinks.length === 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div className="rounded-xl border border-[#c9d7ee] bg-[#f8fafc] p-4 space-y-1.5">
-              <span className="rounded-full bg-[#002b5b] px-2 py-0.5 text-[10px] font-bold text-white">
-                Responsable Légal 1 (Père / Mère)
-              </span>
-              <h3 className="font-bold text-sm text-[#0c2340] pt-1">
-                M. Thomas BERNARD
-              </h3>
-              <p className="text-[#3d5278]">📞 06 12 34 56 78</p>
-              <p className="text-[#5a7199]">✉️ parent@ecole-demo.fr</p>
-            </div>
-            <div className="rounded-xl border border-[#c9d7ee] bg-[#f8fafc] p-4 space-y-1.5">
-              <span className="rounded-full bg-[#264c93] px-2 py-0.5 text-[10px] font-bold text-white">
-                Responsable Légal 2
-              </span>
-              <h3 className="font-bold text-sm text-[#0c2340] pt-1">
-                Mme Sophie BERNARD
-              </h3>
-              <p className="text-[#3d5278]">📞 06 98 76 54 32</p>
-              <p className="text-[#5a7199]">✉️ s.bernard@famille.fr</p>
-            </div>
-          </div>
+          <EmptyState message="Aucun responsable légal n'est rattaché à votre fiche pour le moment. Contactez la scolarité en cas de besoin." />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             {parentLinks.map((link) => (

@@ -2,10 +2,31 @@ import { requireSchoolAccess } from "@/lib/auth";
 import { getStudentForUser } from "@/lib/student";
 import { prisma } from "@/lib/prisma";
 import { EmptyState } from "@/components/ui";
+import { PrintButton } from "@/components/print-button";
+import { computeTermGradesSummary, findCurrentTerm } from "@/lib/student-grades";
 import { logAuditEvent } from "@/lib/audit";
-import { fullName, round1 } from "@/lib/utils";
+import { fullName } from "@/lib/utils";
 import Link from "next/link";
 import Image from "next/image";
+
+function getObjectiveAppreciation(avg: number | null): string {
+  if (avg === null) {
+    return "Aucune évaluation saisie pour cette période pour le moment.";
+  }
+  if (avg >= 16) {
+    return "Très bon travail. Les résultats obtenus témoignent d'un excellent investissement.";
+  }
+  if (avg >= 14) {
+    return "Bon travail d'ensemble. Résultats sérieux et réguliers.";
+  }
+  if (avg >= 12) {
+    return "Résultats satisfaisants. Poursuivre les efforts pour consolider les acquis.";
+  }
+  if (avg >= 10) {
+    return "Ensemble convenable. Des progrès sont possibles avec davantage de régularité.";
+  }
+  return "Résultats fragiles ce semestre. Un travail plus soutenu est nécessaire.";
+}
 
 export default async function ReleveNotesPage({
   params,
@@ -16,7 +37,7 @@ export default async function ReleveNotesPage({
 }) {
   const { schoolId } = await params;
   const sp = await searchParams;
-  const { user, school } = await requireSchoolAccess(schoolId, [
+  const { user, school, role } = await requireSchoolAccess(schoolId, [
     "STUDENT",
     "SCHOOL_ADMIN",
     "PARENT",
@@ -42,72 +63,40 @@ export default async function ReleveNotesPage({
     : [];
 
   const selectedTerm =
-    terms.find((t) => t.id === sp.term) || terms[0] || { id: "term-1", name: "Semestre 1" };
+    (sp.term ? terms.find((t) => t.id === sp.term) : undefined) ||
+    findCurrentTerm(terms);
 
-  // Récupération des notes du semestre sélectionné
-  const grades = await prisma.grade.findMany({
-    where: {
-      schoolId,
-      studentId: student.id,
-      termId: selectedTerm.id,
-    },
-    include: { subject: true },
-    orderBy: { createdAt: "asc" },
-  });
+  // Récupération des matières, notes et bulletin officiel éventuel pour le semestre sélectionné
+  const [subjects, grades, publishedCard] = await Promise.all([
+    prisma.subject.findMany({
+      where: { schoolId },
+      orderBy: { name: "asc" },
+    }),
+    selectedTerm
+      ? prisma.grade.findMany({
+          where: {
+            schoolId,
+            studentId: student.id,
+            termId: selectedTerm.id,
+          },
+          include: { subject: true },
+          orderBy: { createdAt: "asc" },
+        })
+      : [],
+    selectedTerm
+      ? prisma.reportCard.findFirst({
+          where: {
+            schoolId,
+            studentId: student.id,
+            termId: selectedTerm.id,
+            published: true,
+          },
+        })
+      : null,
+  ]);
 
-  // Regroupement par matière
-  const subjectsMap = new Map<
-    string,
-    {
-      name: string;
-      coefficient: number;
-      cc1: number | null;
-      cc2: number | null;
-      cc3: number | null;
-      average: number | null;
-    }
-  >();
-
-  for (const grade of grades) {
-    const subjectId = grade.subjectId;
-    if (!subjectsMap.has(subjectId)) {
-      subjectsMap.set(subjectId, {
-        name: grade.subject.name,
-        coefficient: grade.subject.coefficient || 1,
-        cc1: null,
-        cc2: null,
-        cc3: null,
-        average: null,
-      });
-    }
-
-    const current = subjectsMap.get(subjectId)!;
-    const score20 = (grade.score / (grade.maxScore || 20)) * 20;
-    const gradeTitle = (grade.title || "").toLowerCase();
-
-    if (gradeTitle.includes("1") || gradeTitle.includes("cc1")) {
-      current.cc1 = round1(score20);
-    } else if (gradeTitle.includes("2") || gradeTitle.includes("cc2")) {
-      current.cc2 = round1(score20);
-    } else {
-      current.cc3 = round1(score20);
-    }
-  }
-
-  // Calcul des moyennes par matière et globale
-  let totalWeighted = 0;
-  let totalCoeffs = 0;
-
-  subjectsMap.forEach((sub) => {
-    const scores = [sub.cc1, sub.cc2, sub.cc3].filter((s): s is number => s !== null);
-    if (scores.length > 0) {
-      sub.average = round1(scores.reduce((a, b) => a + b, 0) / scores.length);
-      totalWeighted += sub.average * sub.coefficient;
-      totalCoeffs += sub.coefficient;
-    }
-  });
-
-  const semesterAverage = totalCoeffs > 0 ? round1(totalWeighted / totalCoeffs) : 15.5;
+  const { rows, semesterAverage } = computeTermGradesSummary(subjects, grades);
+  const nonEmptyRows = rows.filter((r) => r.allGrades.length > 0);
 
   const issueDate = new Date().toLocaleDateString("fr-FR", {
     day: "numeric",
@@ -115,31 +104,35 @@ export default async function ReleveNotesPage({
     year: "numeric",
   });
 
+  const termName = selectedTerm?.name || "Période en cours";
+  const appreciationText =
+    publishedCard?.appreciation || getObjectiveAppreciation(semesterAverage);
+
   // Audit Log
   await logAuditEvent({
     schoolId,
     userId: user.id,
     userName: fullName(user.firstName, user.lastName),
-    userRole: "STUDENT",
+    userRole: role,
     action: "BULLETIN_DOWNLOAD",
     resourceType: "REPORT_CARD",
     resourceId: student.id,
-    details: `Édition du Relevé de Notes Officiel (${selectedTerm.name})`,
+    details: `Édition du Relevé de Notes Officiel (${termName})`,
   });
 
   return (
     <div className="space-y-6">
       {/* Barre d'action supérieure */}
-      <div className="no-print flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm border border-[#c9d7ee]">
+      <div className="no-print flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-4 shadow-sm border border-[#c9d7ee]">
         <Link
           href={`/s/${schoolId}/student/documents`}
           className="text-xs font-bold text-[#264c93] hover:underline flex items-center gap-1"
         >
-          ← Retour aux documents officiels
+          &larr; Retour aux documents officiels
         </Link>
 
-        <div className="flex items-center gap-3">
-          {terms.length > 1 && (
+        <div className="flex flex-wrap items-center gap-3">
+          {terms.length > 1 && selectedTerm ? (
             <div className="flex items-center gap-1 bg-[#f0f4f9] p-1 rounded-xl">
               {terms.map((t) => (
                 <Link
@@ -155,29 +148,11 @@ export default async function ReleveNotesPage({
                 </Link>
               ))}
             </div>
-          )}
+          ) : null}
 
-          <button
-            onClick={undefined}
-            className="print-btn inline-flex items-center gap-2 rounded-xl bg-[#002b5b] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#001e42] transition"
-          >
-            <span>🖨️</span>
-            <span>Télécharger en PDF / Imprimer</span>
-          </button>
+          <PrintButton label="🖨️ Télécharger en PDF / Imprimer" className="text-xs px-4 py-2" />
         </div>
       </div>
-
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `
-          document.addEventListener('click', function(e) {
-            if (e.target.closest('.print-btn')) {
-              window.print();
-            }
-          });
-        `,
-        }}
-      />
 
       {/* DOCUMENT OFFICIEL A4 */}
       <div className="mx-auto max-w-3xl rounded-2xl border border-gray-300 bg-white p-8 sm:p-12 shadow-lg text-[#0c2340] print:border-none print:shadow-none print:p-0">
@@ -185,28 +160,28 @@ export default async function ReleveNotesPage({
         <div className="flex items-start justify-between border-b-2 border-[#002b5b] pb-5">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-[#3d5278]">
-              ACADÉMIE DE LYON · RÉPUBLIQUE FRANÇAISE
+              Relevé Officiel de Scolarité
             </p>
             <h1 className="text-xl font-extrabold text-[#002b5b] font-[family-name:var(--font-fraunces)] pt-1">
               {school.name}
             </h1>
-            <p className="text-xs text-[#5a7199]">
-              {school.address || "12 Avenue de l'Enseignement, 69000 Lyon"}
-            </p>
+            {school.address ? (
+              <p className="text-xs text-[#5a7199]">{school.address}</p>
+            ) : null}
           </div>
 
           <div className="text-right flex flex-col items-end">
             <span className="rounded-xl bg-white p-1 border border-gray-200 shadow-sm inline-block">
               <Image
                 src="/henri-moissan.png"
-                alt="Logo Henri Moissan"
+                alt={`Logo ${school.name}`}
                 width={70}
                 height={42}
                 priority
               />
             </span>
             <span className="mt-1 text-[10px] font-bold text-[#002b5b]">
-              Année {academicYear?.name || "2025-2026"}
+              Année {academicYear?.name || "en cours"}
             </span>
           </div>
         </div>
@@ -214,9 +189,11 @@ export default async function ReleveNotesPage({
         {/* Titre */}
         <div className="my-6 text-center space-y-1">
           <h2 className="text-xl font-black uppercase tracking-tight text-[#002b5b] font-[family-name:var(--font-fraunces)]">
-            Relevé de Notes Officiel — {selectedTerm.name}
+            Relevé de Notes — {termName}
           </h2>
-          <p className="text-xs text-[#5a7199]">Synthèse semestrielle des Contrôles Continus (CC)</p>
+          <p className="text-xs text-[#5a7199]">
+            Synthèse semestrielle des Contrôles Continus et évaluations
+          </p>
         </div>
 
         {/* Fiche Élève */}
@@ -230,19 +207,19 @@ export default async function ReleveNotesPage({
           <div>
             <span className="text-[#5a7199] block font-bold uppercase text-[10px]">Classe :</span>
             <span className="font-bold text-sm text-[#0c2340]">
-              {enrollment?.class.name || "6ème A"}
+              {enrollment?.class.name || "Non inscrite"}
             </span>
           </div>
           <div>
             <span className="text-[#5a7199] block font-bold uppercase text-[10px]">Matricule :</span>
             <span className="font-mono font-bold text-sm text-[#0c2340]">
-              {student.matricule || "STU-001"}
+              {student.matricule || "—"}
             </span>
           </div>
           <div>
             <span className="text-[#5a7199] block font-bold uppercase text-[10px]">Moyenne Générale :</span>
             <span className="text-sm font-extrabold text-[#00875a]">
-              {semesterAverage} / 20
+              {semesterAverage !== null ? `${semesterAverage} / 20` : "—"}
             </span>
           </div>
         </div>
@@ -260,26 +237,48 @@ export default async function ReleveNotesPage({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {Array.from(subjectsMap.values()).map((sub, i) => (
-              <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-[#fcfdfe]"}>
-                <td className="py-2.5 px-3 font-bold text-[#0c2340]">{sub.name}</td>
-                <td className="py-2.5 px-2 text-center text-[#3d5278]">{sub.cc1 !== null ? `${sub.cc1}/20` : "—"}</td>
-                <td className="py-2.5 px-2 text-center text-[#3d5278]">{sub.cc2 !== null ? `${sub.cc2}/20` : "—"}</td>
-                <td className="py-2.5 px-2 text-center text-[#3d5278]">{sub.cc3 !== null ? `${sub.cc3}/20` : "—"}</td>
-                <td className="py-2.5 px-2 text-center font-semibold text-[#5a7199]">{sub.coefficient}</td>
-                <td className="py-2.5 px-3 text-right font-extrabold text-[#002b5b]">
-                  {sub.average !== null ? `${sub.average} / 20` : "—"}
+            {nonEmptyRows.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="py-6 px-3 text-center text-[#5a7199]">
+                  Aucune note enregistrée pour {termName}.
                 </td>
               </tr>
-            ))}
+            ) : (
+              nonEmptyRows.map((sub, i) => (
+                <tr key={sub.subjectId} className={i % 2 === 0 ? "bg-white" : "bg-[#fcfdfe]"}>
+                  <td className="py-2.5 px-3 font-bold text-[#0c2340]">
+                    <div>{sub.subjectName}</div>
+                    {sub.extraGrades.length > 0 ? (
+                      <div className="mt-0.5 text-[10px] font-normal text-[#5a7199]">
+                        +{" "}
+                        {sub.extraGrades
+                          .map((eg) => `${eg.title || eg.type}: ${eg.score20}/20`)
+                          .join(" · ")}
+                      </div>
+                    ) : null}
+                  </td>
+                  {[sub.cc1, sub.cc2, sub.cc3].map((slot, idx) => (
+                    <td key={idx} className="py-2.5 px-2 text-center text-[#3d5278]">
+                      {slot !== null ? `${slot.score20}/20` : "—"}
+                    </td>
+                  ))}
+                  <td className="py-2.5 px-2 text-center font-semibold text-[#5a7199]">
+                    {sub.coefficient}
+                  </td>
+                  <td className="py-2.5 px-3 text-right font-extrabold text-[#002b5b]">
+                    {sub.average !== null ? `${sub.average} / 20` : "—"}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-[#002b5b] bg-[#d7f6ee]/60 font-black">
               <td colSpan={5} className="py-3 px-3 uppercase text-[#002b5b] text-sm">
-                Moyenne Générale du {selectedTerm.name}
+                Moyenne Générale — {termName}
               </td>
               <td className="py-3 px-3 text-right text-base text-[#002b5b]">
-                {semesterAverage} / 20
+                {semesterAverage !== null ? `${semesterAverage} / 20` : "—"}
               </td>
             </tr>
           </tfoot>
@@ -288,24 +287,22 @@ export default async function ReleveNotesPage({
         {/* Appréciation globale */}
         <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4 text-xs space-y-1">
           <p className="font-bold uppercase tracking-wider text-[#3d5278]">
-            Appréciation générale du conseil de classe :
+            Appréciation générale :
           </p>
-          <p className="italic text-[#1a3d6e]">
-            « Excellent travail ce semestre. Lucas fait preuve d'une grande rigueur et d'une participation active
-            dans l'ensemble des disciplines. Félicitations du conseil de classe. »
-          </p>
+          <p className="italic text-[#1a3d6e]">« {appreciationText} »</p>
         </div>
 
         {/* Pied de page et cachet */}
         <div className="mt-10 pt-6 border-t border-gray-200 grid grid-cols-2 items-end">
           <div className="space-y-2">
             <p className="text-xs text-[#5a7199]">
-              Fait à Lyon, le <strong>{issueDate}</strong>
+              {school.address ? `Fait à ${school.address}, le` : "Édité le"}{" "}
+              <strong>{issueDate}</strong>
             </p>
             <div className="flex items-center gap-2">
               <div className="h-16 w-16 rounded-full border border-dashed border-[#002b5b] p-1 flex items-center justify-center text-center rotate-[-8deg] bg-[#eef5fc]/60">
-                <span className="text-[8px] font-bold uppercase text-[#002b5b] leading-tight">
-                  HENRI MOISSAN<br />DIRECTION<br />★ VALIDÉ ★
+                <span className="text-[7px] font-bold uppercase text-[#002b5b] leading-tight line-clamp-3">
+                  {school.name}<br />DIRECTION<br />★ VALIDÉ ★
                 </span>
               </div>
               <span className="text-[10px] text-[#00875a] font-semibold">
@@ -318,7 +315,7 @@ export default async function ReleveNotesPage({
             <p className="text-xs font-bold text-[#0c2340]">Pour le Conseil de Classe</p>
             <div className="pt-6">
               <span className="font-[family-name:var(--font-fraunces)] italic text-base font-bold text-[#002b5b]">
-                Le Chef d'Établissement
+                La Direction — {school.name}
               </span>
             </div>
           </div>

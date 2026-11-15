@@ -54,7 +54,7 @@ export default async function StudentAbsencesPage({
       hasFile: Boolean(a.justificationFile),
       reason: a.reason,
       subjectName:
-        a.subject?.name || a.teacher?.specialty || "Matière générale",
+        a.subject?.name || a.teacher?.specialty || "Cours non précisé",
     };
   });
 
@@ -62,7 +62,7 @@ export default async function StudentAbsencesPage({
     <div className="space-y-8">
       <PageHeader
         title="Mes Absences"
-        description="Relevé détaillé de vos absences avec date, heure, matière et justification par certificat."
+        description="Relevé détaillé de vos absences et retards. Les justificatifs doivent être transmis par vos parents ou représentants légaux depuis leur espace Parent."
       />
 
       <StudentAttendanceTable

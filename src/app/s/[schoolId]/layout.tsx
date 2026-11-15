@@ -57,9 +57,9 @@ export default async function SchoolLayout({
       { href: `${base}/student/schedule`, label: "Emploi du temps" },
       { href: `${base}/student/grades`, label: "Notes & Bulletins" },
       { href: `${base}/student/evaluations`, label: "Examens & Évaluations" },
+      { href: `${base}/student/homework`, label: "Devoirs à rendre" },
+      { href: `${base}/student/courses`, label: "Cours & Documents" },
       { href: `${base}/student/attendance`, label: "Mes Absences" },
-      { href: `${base}/student/documents`, label: "Documents Scolaires" },
-      { href: `${base}/student/requests`, label: "Vie Scolaire & Démarches" },
       { href: `${base}/student/profile`, label: "Mon Espace Personnel" },
       {
         href: `${base}/student/notifications`,
@@ -143,6 +143,13 @@ export default async function SchoolLayout({
           ? "Élève"
           : "Parent";
 
+  const notificationsHref =
+    role === "STUDENT"
+      ? `${base}/student/notifications`
+      : role === "PARENT"
+        ? `${base}/parent/notifications`
+        : null;
+
   return (
     <div className="flex min-h-screen flex-col md:flex-row bg-[#f4f8fc]">
       <SchoolNav
@@ -154,6 +161,7 @@ export default async function SchoolLayout({
         sections={sections}
         unreadNotificationsCount={unread}
         recentNotifications={serializedNotifications}
+        notificationsHref={notificationsHref}
       />
       <div className="min-w-0 flex-1 flex flex-col">
         {/* Barre supérieure persistante (Desktop) avec cloche de notifications en haut à droite */}
@@ -174,6 +182,7 @@ export default async function SchoolLayout({
               schoolId={schoolId}
               unreadCount={unread}
               notifications={serializedNotifications}
+              notificationsHref={notificationsHref}
             />
 
             <div className="h-5 w-px bg-slate-200" />

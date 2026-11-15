@@ -41,14 +41,20 @@ export function StudentPasswordChangeForm({
     formData.append("confirmPassword", confirmPassword);
 
     startTransition(async () => {
-      const res = await changePasswordAction(schoolId, formData);
-      if (res?.error) {
-        setError(res.error);
-      } else if (res?.success) {
-        setSuccess("Votre mot de passe a été modifié avec succès !");
-        setCurrentPassword("");
-        setNewPassword("");
-        setConfirmPassword("");
+      try {
+        const res = await changePasswordAction(schoolId, formData);
+        if (res?.error) {
+          setError(res.error);
+        } else if (res?.success) {
+          setSuccess("Votre mot de passe a été modifié avec succès !");
+          setCurrentPassword("");
+          setNewPassword("");
+          setConfirmPassword("");
+        } else {
+          setError("Impossible de mettre à jour le mot de passe.");
+        }
+      } catch {
+        setError("Une erreur est survenue lors de la modification du mot de passe.");
       }
     });
   };

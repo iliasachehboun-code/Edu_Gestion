@@ -54,9 +54,42 @@ const SUBJECT_COLORS: Record<
   },
 };
 
+function getSubjectColors(subjectName: string) {
+  if (SUBJECT_COLORS[subjectName]) return SUBJECT_COLORS[subjectName];
+  const lower = subjectName.toLowerCase();
+  if (lower.includes("math")) return SUBJECT_COLORS["Mathématiques"];
+  if (lower.includes("fran")) return SUBJECT_COLORS["Français"];
+  if (lower.includes("angl")) return SUBJECT_COLORS["Anglais"];
+  if (lower.includes("hist") || lower.includes("géo") || lower.includes("geo"))
+    return SUBJECT_COLORS["Histoire-Géo"];
+  if (lower.includes("svt") || lower.includes("bio")) return SUBJECT_COLORS["SVT"];
+  if (lower.includes("phys") || lower.includes("chim"))
+    return SUBJECT_COLORS["Physique-Chimie"];
+  if (lower.includes("eps") || lower.includes("sport")) return SUBJECT_COLORS["EPS"];
+  return {
+    bg: "bg-[#e5f8f3]",
+    text: "text-[#002b5b]",
+    border: "border-[#8fe3cf]",
+    badge: "bg-[#002b5b] text-white",
+  };
+}
+
+function parseLocalDateParam(dateStr?: string): Date {
+  if (dateStr) {
+    const m = dateStr.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) {
+      const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+      if (!isNaN(d.getTime())) return d;
+    }
+    const parsed = new Date(dateStr);
+    if (!isNaN(parsed.getTime())) return parsed;
+  }
+  return new Date();
+}
+
 // Fonctions utilitaires pour le calcul et formatage dynamique des dates de la semaine
 function getMonday(dateInput: Date) {
-  const d = new Date(dateInput);
+  const d = new Date(dateInput.getFullYear(), dateInput.getMonth(), dateInput.getDate());
   const day = d.getDay();
   const diff = d.getDate() - day + (day === 0 ? -6 : 1);
   const monday = new Date(d.setDate(diff));
@@ -77,12 +110,12 @@ function toISODate(d: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function formatWeekRange(monday: Date, friday: Date) {
-  const startDay = monday.getDate();
-  const startMonth = monday.toLocaleDateString("fr-FR", { month: "long" });
-  const endDay = friday.getDate();
-  const endMonth = friday.toLocaleDateString("fr-FR", { month: "long" });
-  const year = friday.getFullYear();
+function formatWeekRange(startDayDate: Date, endDayDate: Date) {
+  const startDay = startDayDate.getDate();
+  const startMonth = startDayDate.toLocaleDateString("fr-FR", { month: "long" });
+  const endDay = endDayDate.getDate();
+  const endMonth = endDayDate.toLocaleDateString("fr-FR", { month: "long" });
+  const year = endDayDate.getFullYear();
 
   if (startMonth === endMonth) {
     return `Semaine du ${startDay} au ${endDay} ${endMonth} ${year}`;
@@ -119,24 +152,6 @@ export default async function StudentSchedulePage({
     );
   }
 
-  // Calcul dynamique de la semaine sélectionnée
-  const refDate = sp.date ? new Date(sp.date) : new Date();
-  const validRefDate = isNaN(refDate.getTime()) ? new Date() : refDate;
-  const monday = getMonday(validRefDate);
-  const friday = addDays(monday, 4);
-
-  const prevWeekStr = toISODate(addDays(monday, -7));
-  const nextWeekStr = toISODate(addDays(monday, 7));
-  const todayStr = toISODate(new Date());
-
-  const weekDays = [
-    { value: 1, label: "Lundi", date: monday },
-    { value: 2, label: "Mardi", date: addDays(monday, 1) },
-    { value: 3, label: "Mercredi", date: addDays(monday, 2) },
-    { value: 4, label: "Jeudi", date: addDays(monday, 3) },
-    { value: 5, label: "Vendredi", date: friday },
-  ];
-
   const [timeSlots, entries] = await Promise.all([
     prisma.timeSlot.findMany({
       where: { schoolId },
@@ -152,6 +167,25 @@ export default async function StudentSchedulePage({
       },
     }),
   ]);
+
+  // Calcul dynamique de la semaine sélectionnée
+  const validRefDate = parseLocalDateParam(sp.date);
+  const monday = getMonday(validRefDate);
+  const hasSaturday = entries.some((e) => e.dayOfWeek === 6);
+  const lastDay = addDays(monday, hasSaturday ? 5 : 4);
+
+  const prevWeekStr = toISODate(addDays(monday, -7));
+  const nextWeekStr = toISODate(addDays(monday, 7));
+  const todayStr = toISODate(new Date());
+
+  const weekDays = [
+    { value: 1, label: "Lundi", date: monday },
+    { value: 2, label: "Mardi", date: addDays(monday, 1) },
+    { value: 3, label: "Mercredi", date: addDays(monday, 2) },
+    { value: 4, label: "Jeudi", date: addDays(monday, 3) },
+    { value: 5, label: "Vendredi", date: addDays(monday, 4) },
+    ...(hasSaturday ? [{ value: 6, label: "Samedi", date: addDays(monday, 5) }] : []),
+  ];
 
   return (
     <div className="space-y-6">
@@ -169,10 +203,12 @@ export default async function StudentSchedulePage({
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-[#8fe3cf]">
-              Semaine en cours
+              {toISODate(monday) <= todayStr && todayStr <= toISODate(lastDay)
+                ? "Semaine en cours"
+                : "Semaine sélectionnée"}
             </p>
             <h2 className="font-[family-name:var(--font-fraunces)] text-lg font-bold sm:text-xl">
-              {formatWeekRange(monday, friday)}
+              {formatWeekRange(monday, lastDay)}
             </h2>
           </div>
         </div>
@@ -312,13 +348,14 @@ export default async function StudentSchedulePage({
                           e.timeSlotId === slot.id && e.dayOfWeek === d.value
                       );
 
-                      const colors =
-                        (entry && SUBJECT_COLORS[entry.subject.name]) || {
-                          bg: "bg-[#e5f8f3]",
-                          text: "text-[#002b5b]",
-                          border: "border-[#8fe3cf]",
-                          badge: "bg-[#002b5b] text-white",
-                        };
+                      const colors = entry
+                        ? getSubjectColors(entry.subject.name)
+                        : {
+                            bg: "bg-[#e5f8f3]",
+                            text: "text-[#002b5b]",
+                            border: "border-[#8fe3cf]",
+                            badge: "bg-[#002b5b] text-white",
+                          };
 
                       return (
                         <td

@@ -2,6 +2,11 @@ import Link from "next/link";
 import { requireSchoolAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getStudentForUser } from "@/lib/student";
+import { computeTermGradesSummary, findCurrentTerm } from "@/lib/student-grades";
+import {
+  filterUpcomingEvaluations,
+  getEvaluationQueryFloor,
+} from "@/lib/student-evaluations";
 import {
   Badge,
   Card,
@@ -11,7 +16,15 @@ import {
   Th,
   Button,
 } from "@/components/ui";
-import { formatDate, fullName, round1, DAYS } from "@/lib/utils";
+import { formatDate, fullName, DAYS } from "@/lib/utils";
+
+function normalizeTimeHHMM(raw: string): string {
+  const match = raw.trim().match(/^(\d{1,2})\s*[:hH]?\s*(\d{0,2})$/);
+  if (!match) return raw.trim();
+  const h = match[1].padStart(2, "0");
+  const m = (match[2] || "00").padStart(2, "0");
+  return `${h}:${m}`;
+}
 
 export default async function StudentDashboardPage({
   params,
@@ -28,10 +41,13 @@ export default async function StudentDashboardPage({
 
   const enrollment = student.enrollments[0];
   const classId = enrollment?.classId;
+  const now = new Date();
+  const evalQueryFloor = getEvaluationQueryFloor(now);
 
   // Récupération des données en parallèle
   const [
     grades,
+    subjects,
     attendances,
     terms,
     unreadNotifications,
@@ -42,6 +58,10 @@ export default async function StudentDashboardPage({
       where: { schoolId, studentId: student.id },
       include: { subject: true, term: true },
       orderBy: { createdAt: "desc" },
+    }),
+    prisma.subject.findMany({
+      where: { schoolId },
+      orderBy: { name: "asc" },
     }),
     prisma.attendance.findMany({
       where: {
@@ -78,64 +98,40 @@ export default async function StudentDashboardPage({
           where: {
             schoolId,
             classId,
-            date: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
+            date: { gte: evalQueryFloor },
           },
           include: { subject: true },
           orderBy: { date: "asc" },
-          take: 5,
+          take: 20,
         })
       : [],
   ]);
 
-  const now = new Date();
-  const todayMidnight = new Date(now);
-  todayMidnight.setHours(0, 0, 0, 0);
-
   // Filtrage automatique des évaluations terminées
-  const activeEvaluations = upcomingEvaluations.filter((ev) => {
-    const evDate = new Date(ev.date);
-    evDate.setHours(0, 0, 0, 0);
+  const activeEvaluations = filterUpcomingEvaluations(upcomingEvaluations, now).slice(0, 3);
 
-    if (evDate < todayMidnight) return false;
-
-    if (evDate.getTime() === todayMidnight.getTime() && ev.startTime) {
-      const cleanTime = ev.startTime.replace("h", ":").trim();
-      const [hours, minutes] = cleanTime.split(":").map(Number);
-      if (!isNaN(hours)) {
-        const endDateTime = new Date(now);
-        endDateTime.setHours(hours, minutes || 0, 0, 0);
-        endDateTime.setMinutes(endDateTime.getMinutes() + (ev.durationMin || 55));
-        if (now > endDateTime) return false;
-      }
-    }
-    return true;
-  }).slice(0, 3);
-
-  // Calcul de la note générale du Semestre 1
-  const validGrades = grades.filter((g) => g.maxScore > 0);
-  const totalWeightedScores = validGrades.reduce(
-    (sum, g) => sum + (g.score / g.maxScore) * 20 * g.coefficient,
-    0
-  );
-  const totalCoefficients = validGrades.reduce(
-    (sum, g) => sum + g.coefficient,
-    0
-  );
-  const semesterAverage =
-    totalCoefficients > 0
-      ? round1(totalWeightedScores / totalCoefficients)
-      : null;
+  // Calcul unifié de la note générale du semestre actif
+  const currentTerm = findCurrentTerm(terms, now);
+  const currentTermGrades = currentTerm
+    ? grades.filter((g) => g.termId === currentTerm.id)
+    : grades;
+  const { semesterAverage } = computeTermGradesSummary(subjects, currentTermGrades);
 
   // Statistiques absences uniquement
   const unjustifiedAbsences = attendances.filter(
     (a) => !a.justified && a.status !== "EXCUSED"
   );
 
-  // Cours d'aujourd'hui (1=Lundi ... 6=Samedi, 0=Dimanche)
-  const currentDayOfWeek = new Date().getDay();
-  const dayKey = currentDayOfWeek === 0 || currentDayOfWeek === 7 ? 1 : currentDayOfWeek;
-  const todayLabel = DAYS.find((d) => d.value === dayKey)?.label ?? "Lundi";
-  const todayClasses = scheduleEntries.filter((e) => e.dayOfWeek === dayKey);
+  // Cours d'aujourd'hui (0=Dimanche, 1=Lundi ... 6=Samedi)
+  const currentDayOfWeek = now.getDay();
+  const todayLabel =
+    currentDayOfWeek === 0
+      ? "Dimanche"
+      : DAYS.find((d) => d.value === currentDayOfWeek)?.label ?? "Aujourd'hui";
+  const todayClasses =
+    currentDayOfWeek === 0
+      ? []
+      : scheduleEntries.filter((e) => e.dayOfWeek === currentDayOfWeek);
 
   // Détermination du cours suivant
   const currentHour = now.getHours();
@@ -143,25 +139,25 @@ export default async function StudentDashboardPage({
   const currentTimeStr = `${String(currentHour).padStart(2, "0")}:${String(currentMinutes).padStart(2, "0")}`;
 
   // 1. Chercher le cours à venir aujourd'hui (dont l'heure de fin n'est pas encore dépassée)
-  let nextClass = todayClasses.find((c) => c.timeSlot.endTime >= currentTimeStr);
+  let nextClass = todayClasses.find(
+    (c) => normalizeTimeHHMM(c.timeSlot.endTime) >= currentTimeStr
+  );
   let nextDayBadge = "Aujourd'hui";
 
-  // 2. Si tous les cours du jour sont terminés ou pas de cours aujourd'hui : chercher le premier cours du prochain jour d'école
+  // 2. Sinon chercher le premier cours du prochain jour d'école (en sautant le dimanche)
   if (!nextClass && scheduleEntries.length > 0) {
     for (let offset = 1; offset <= 7; offset++) {
-      const checkDay = ((dayKey - 1 + offset) % 7) + 1;
+      const checkDay = (currentDayOfWeek + offset) % 7;
+      if (checkDay === 0) continue;
       const candidates = scheduleEntries.filter((e) => e.dayOfWeek === checkDay);
       if (candidates.length > 0) {
         nextClass = candidates[0];
-        nextDayBadge = offset === 1 ? "Demain" : DAYS.find((d) => d.value === checkDay)?.label ?? "";
+        const dayName = DAYS.find((d) => d.value === checkDay)?.label ?? "";
+        nextDayBadge =
+          offset === 1 ? "Demain" : offset === 7 ? `${dayName} proch.` : dayName;
         break;
       }
     }
-  }
-
-  // Fallback si nécessaire
-  if (!nextClass && todayClasses.length > 0) {
-    nextClass = todayClasses[0];
   }
 
   const recentGrades = grades.slice(0, 6);
@@ -195,20 +191,20 @@ export default async function StudentDashboardPage({
               📝 Examens & Évaluations
             </Button>
           </Link>
-          <Link href={`/s/${schoolId}/student/documents`}>
+          <Link href={`/s/${schoolId}/student/homework`}>
             <Button
               variant="secondary"
               className="bg-white/10 text-white border-white/20 hover:bg-white/20 text-xs font-semibold"
             >
-              📜 Documents
+              📝 Devoirs à rendre
             </Button>
           </Link>
-          <Link href={`/s/${schoolId}/student/requests`}>
+          <Link href={`/s/${schoolId}/student/courses`}>
             <Button
               variant="secondary"
               className="bg-white/10 text-white border-white/20 hover:bg-white/20 text-xs font-semibold"
             >
-              🏛️ Démarches
+              📚 Mes cours
             </Button>
           </Link>
           <Link href={`/s/${schoolId}/student/profile`}>
@@ -243,7 +239,7 @@ export default async function StudentDashboardPage({
             <span className="text-sm font-medium text-[#3d5278]">/ 20</span>
           </div>
           <span className="mt-2 text-xs text-[#5a7199]">
-            {terms[0]?.name || "Semestre 1"}
+            {currentTerm?.name || "Période en cours"}
           </span>
         </Card>
 
@@ -416,7 +412,8 @@ export default async function StudentDashboardPage({
               </thead>
               <tbody>
                 {recentGrades.map((g) => {
-                  const scoreOver20 = (g.score / g.maxScore) * 20;
+                  const scoreOver20 =
+                    g.maxScore > 0 ? (g.score / g.maxScore) * 20 : 0;
                   return (
                     <tr key={g.id}>
                       <Td className="font-medium text-[#0c2340]">
@@ -457,7 +454,9 @@ export default async function StudentDashboardPage({
               Prochaines Évaluations & Contrôles programmés
             </h2>
             <p className="text-xs text-[#3d5278]">
-              Épreuves à venir pour votre classe ({enrollment?.class.name || "6ème A"})
+              {enrollment
+                ? `Épreuves à venir pour votre classe (${enrollment.class.name})`
+                : "Aucune classe associée"}
             </p>
           </div>
           <Link
@@ -491,7 +490,9 @@ export default async function StudentDashboardPage({
                   {ev.title}
                 </h4>
                 <div className="flex items-center justify-between text-[11px] text-[#5a7199] border-t border-[#f0f4f9] pt-1.5">
-                  <span>⏱️ {ev.startTime || "09h00"} ({ev.durationMin}m)</span>
+                  <span>
+                    ⏱️ {ev.startTime ? `${ev.startTime} (${ev.durationMin}m)` : `${ev.durationMin} min`}
+                  </span>
                   <span>Coeff. {ev.coefficient}</span>
                 </div>
               </div>
@@ -539,8 +540,8 @@ export default async function StudentDashboardPage({
                 const subjectName =
                   a.subject?.name ||
                   a.teacher?.specialty ||
-                  "Matière générale";
-                const timeDisplay = a.time || "08h00 - 10h00";
+                  "Cours non précisé";
+                const timeDisplay = a.time || "Non précisée";
 
                 return (
                   <tr key={a.id}>
@@ -562,16 +563,13 @@ export default async function StudentDashboardPage({
                     </Td>
                     <Td className="text-xs">
                       {a.justified || a.status === "EXCUSED" ? (
-                        <span className="font-semibold text-[#002b5b]">
-                          📋 {a.reason || "Certificat médical validé"}
+                        <span className="font-semibold text-[#00875a]">
+                          ✓ {a.reason || "Justifiée"}
                         </span>
                       ) : (
-                        <Link
-                          href={`/s/${schoolId}/student/attendance`}
-                          className="inline-flex items-center gap-1 font-semibold text-[#be123c] hover:underline"
-                        >
-                          <span>Déposer certificat &rarr;</span>
-                        </Link>
+                        <span className="text-xs font-semibold text-[#be123c]">
+                          À faire justifier par vos parents
+                        </span>
                       )}
                     </Td>
                   </tr>

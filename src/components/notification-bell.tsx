@@ -68,26 +68,38 @@ export function NotificationBell({
   unreadCount = 0,
   notifications = [],
   variant = "light",
+  notificationsHref,
 }: {
   schoolId: string;
   unreadCount: number;
   notifications: NotificationData[];
   variant?: "light" | "dark";
+  notificationsHref?: string | null;
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [items, setItems] = useState<NotificationData[]>(notifications);
-  const [unread, setUnread] = useState(unreadCount);
+  const [optimisticReadIds, setOptimisticReadIds] = useState<string[]>([]);
+  const [markedAllBaselineCount, setMarkedAllBaselineCount] = useState<number | null>(null);
   const [isPending, startTransition] = useTransition();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  // Mettre à jour si les props du serveur changent
-  useEffect(() => {
-    setItems(notifications);
-    setUnread(unreadCount);
-  }, [notifications, unreadCount]);
+  const markedAllActive =
+    markedAllBaselineCount !== null && markedAllBaselineCount === unreadCount;
 
-  // Fermeture au clic extérieur
+  const items = notifications.map((n) => ({
+    ...n,
+    read: n.read || markedAllActive || optimisticReadIds.includes(n.id),
+  }));
+
+  const locallyReadVisibleCount = notifications.filter(
+    (n) => !n.read && optimisticReadIds.includes(n.id)
+  ).length;
+
+  const unread = markedAllActive
+    ? 0
+    : Math.max(0, unreadCount - locallyReadVisibleCount);
+
+  // Fermeture au clic extérieur ou touche Échap
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -97,17 +109,24 @@ export function NotificationBell({
         setIsOpen(false);
       }
     }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    }
     if (isOpen) {
       document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleKeyDown);
     }
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
     };
   }, [isOpen]);
 
   const handleMarkAllRead = () => {
-    setUnread(0);
-    setItems((prev) => prev.map((n) => ({ ...n, read: true })));
+    setMarkedAllBaselineCount(unreadCount);
+    setOptimisticReadIds(notifications.map((n) => n.id));
     startTransition(async () => {
       await markAllNotificationsReadAction(schoolId);
       router.refresh();
@@ -115,11 +134,8 @@ export function NotificationBell({
   };
 
   const handleItemClick = (notification: NotificationData) => {
-    if (!notification.read) {
-      setUnread((c) => Math.max(0, c - 1));
-      setItems((prev) =>
-        prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n))
-      );
+    if (!notification.read && !optimisticReadIds.includes(notification.id)) {
+      setOptimisticReadIds((prev) => [...prev, notification.id]);
       startTransition(async () => {
         await markNotificationReadAction(schoolId, notification.id);
         router.refresh();
@@ -246,15 +262,17 @@ export function NotificationBell({
           </div>
 
           {/* Pied de page */}
-          <div className="border-t border-[#eef2f7] bg-[#f8fafc] px-4 py-2.5 text-center">
-            <Link
-              href={`/s/${schoolId}/student/notifications`}
-              onClick={() => setIsOpen(false)}
-              className="text-xs font-bold text-[#002b5b] hover:text-[#001e42] transition"
-            >
-              Voir toutes mes notifications &rarr;
-            </Link>
-          </div>
+          {notificationsHref ? (
+            <div className="border-t border-[#eef2f7] bg-[#f8fafc] px-4 py-2.5 text-center">
+              <Link
+                href={notificationsHref}
+                onClick={() => setIsOpen(false)}
+                className="text-xs font-bold text-[#002b5b] hover:text-[#001e42] transition"
+              >
+                Voir toutes mes notifications &rarr;
+              </Link>
+            </div>
+          ) : null}
         </div>
       )}
     </div>

@@ -7,10 +7,12 @@ import {
   Card,
   EmptyState,
   PageHeader,
-  Table,
-  Td,
-  Th,
 } from "@/components/ui";
+import {
+  computeTermGradesSummary,
+  findCurrentTerm,
+  getClassRelevantSubjects,
+} from "@/lib/student-grades";
 import { round1 } from "@/lib/utils";
 
 export default async function StudentGradesPage({
@@ -40,28 +42,33 @@ export default async function StudentGradesPage({
       })
     : [];
 
-  const selectedTermId = sp.termId || (terms[0]?.id ?? "");
-  const currentTerm = terms.find((t) => t.id === selectedTermId) || terms[0];
+  const currentTerm =
+    (sp.termId ? terms.find((t) => t.id === sp.termId) : undefined) ||
+    findCurrentTerm(terms);
+  const selectedTermId = currentTerm?.id || "";
 
-  // Récupérer toutes les matières de l'école
-  const subjects = await prisma.subject.findMany({
-    where: { schoolId },
-    orderBy: { name: "asc" },
-  });
+  // Récupérer les matières pertinentes pour la classe / l'élève
+  const subjects = await getClassRelevantSubjects(
+    schoolId,
+    student.id,
+    enrollment?.classId
+  );
 
   // Récupérer les notes de l'élève pour le semestre sélectionné
-  const grades = await prisma.grade.findMany({
-    where: {
-      schoolId,
-      studentId: student.id,
-      ...(selectedTermId ? { termId: selectedTermId } : {}),
-    },
-    include: {
-      subject: true,
-      term: true,
-    },
-    orderBy: { createdAt: "asc" },
-  });
+  const grades = selectedTermId
+    ? await prisma.grade.findMany({
+        where: {
+          schoolId,
+          studentId: student.id,
+          termId: selectedTermId,
+        },
+        include: {
+          subject: true,
+          term: true,
+        },
+        orderBy: { createdAt: "asc" },
+      })
+    : [];
 
   // Récupérer les bulletins publiés pour cet élève
   const reportCards = await prisma.reportCard.findMany({
@@ -80,60 +87,12 @@ export default async function StudentGradesPage({
     orderBy: { term: { order: "desc" } },
   });
 
-  // Construction des lignes par matière avec CC1, CC2, CC3 et Moyenne
-  type SubjectRow = {
-    subjectId: string;
-    subjectName: string;
-    coefficient: number;
-    cc1: number | null;
-    cc2: number | null;
-    cc3: number | null;
-    average: number | null;
-  };
-
-  const rows: SubjectRow[] = subjects.map((sub) => {
-    const subGrades = grades.filter((g) => g.subjectId === sub.id);
-
-    // Recherche de CC 1, CC 2, CC 3
-    const g1 =
-      subGrades.find((g) => g.title?.includes("1") || g.title?.toLowerCase().includes("cc 1")) ||
-      subGrades[0];
-    const g2 =
-      subGrades.find((g) => g !== g1 && (g.title?.includes("2") || g.title?.toLowerCase().includes("cc 2"))) ||
-      subGrades.filter((g) => g !== g1)[0];
-    const g3 =
-      subGrades.find((g) => g !== g1 && g !== g2 && (g.title?.includes("3") || g.title?.toLowerCase().includes("cc 3"))) ||
-      subGrades.filter((g) => g !== g1 && g !== g2)[0];
-
-    const cc1 = g1 ? (g1.score / g1.maxScore) * 20 : null;
-    const cc2 = g2 ? (g2.score / g2.maxScore) * 20 : null;
-    const cc3 = g3 ? (g3.score / g3.maxScore) * 20 : null;
-
-    const availableScores = [cc1, cc2, cc3].filter((s): s is number => s !== null);
-    const average =
-      availableScores.length > 0
-        ? round1(availableScores.reduce((a, b) => a + b, 0) / availableScores.length)
-        : null;
-
-    return {
-      subjectId: sub.id,
-      subjectName: sub.name,
-      coefficient: sub.coefficient,
-      cc1: cc1 !== null ? round1(cc1) : null,
-      cc2: cc2 !== null ? round1(cc2) : null,
-      cc3: cc3 !== null ? round1(cc3) : null,
-      average,
-    };
-  });
-
-  // Calcul de la note générale du Semestre (pondérée par les coefficients)
-  const rowsWithAverage = rows.filter((r) => r.average !== null);
-  const totalCoeff = rowsWithAverage.reduce((acc, r) => acc + r.coefficient, 0);
-  const totalWeighted = rowsWithAverage.reduce(
-    (acc, r) => acc + (r.average ?? 0) * r.coefficient,
-    0
-  );
-  const semesterGrade = totalCoeff > 0 ? round1(totalWeighted / totalCoeff) : null;
+  const {
+    rows,
+    evaluatedSubjectsCount,
+    totalCoefficient: totalCoeff,
+    semesterAverage: semesterGrade,
+  } = computeTermGradesSummary(subjects, grades);
 
   return (
     <div className="space-y-8">
@@ -188,7 +147,7 @@ export default async function StudentGradesPage({
           </p>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-4xl font-bold text-[#0c2340]">
-              {rowsWithAverage.length}
+              {evaluatedSubjectsCount}
             </span>
             <span className="text-xs text-[#3d5278]">/ {rows.length} matières</span>
           </div>
@@ -221,106 +180,118 @@ export default async function StudentGradesPage({
             )}
           </div>
           <p className="mt-3 text-xs text-[#5a7199]">
-            {enrollment?.class.name || "Élève"} · {enrollment?.academicYear.name || ""}
+            {enrollment?.class.name || "Élève"}
+            {enrollment?.academicYear.name ? ` · ${enrollment.academicYear.name}` : ""}
           </p>
         </Card>
       </div>
 
-      {/* Tableau récapitulatif demandé : Matière, CC1, CC2, CC3, Moyenne générale de chaque matière et en bas la note de semestre */}
+      {/* Tableau récapitulatif : Matière, CC1, CC2, CC3, Moyenne générale */}
       <Card className="p-0 overflow-hidden shadow-md border-[#b7c9e6]">
         <div className="border-b border-[#d7efe8] bg-[#e5f8f3] px-6 py-4">
           <h2 className="font-[family-name:var(--font-fraunces)] text-lg font-semibold text-[#002b5b]">
             Relevé des notes — {currentTerm?.name || "Semestre"}
           </h2>
           <p className="text-xs text-[#3d5278]">
-            Contrôles continus et moyenne par matière
+            Contrôles continus et moyenne pondérée par matière
           </p>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-[#c9d7ee] bg-[#f4f8fc]">
-                <th className="px-5 py-3.5 font-bold text-[#002b5b]">Matière</th>
-                <th className="px-5 py-3.5 font-semibold text-[#3d5278]">Coefficient</th>
-                <th className="px-5 py-3.5 font-semibold text-[#002b5b] text-center">
-                  Contrôle Continu 1
-                </th>
-                <th className="px-5 py-3.5 font-semibold text-[#002b5b] text-center">
-                  Contrôle Continu 2
-                </th>
-                <th className="px-5 py-3.5 font-semibold text-[#002b5b] text-center">
-                  Contrôle Continu 3
-                </th>
-                <th className="px-5 py-3.5 font-bold text-[#002b5b] text-right">
-                  Moyenne Matière
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, index) => {
-                const isEven = index % 2 === 0;
-                return (
-                  <tr
-                    key={r.subjectId}
-                    className={`border-b border-[#eef2f7] transition hover:bg-[#fbfdff] ${
-                      isEven ? "bg-white" : "bg-[#fcfdfe]"
-                    }`}
-                  >
-                    <td className="px-5 py-3.5 font-semibold text-[#0c2340]">
-                      {r.subjectName}
-                    </td>
-                    <td className="px-5 py-3.5 text-xs text-[#3d5278]">
-                      Coeff. {r.coefficient}
-                    </td>
-                    <td className="px-5 py-3.5 text-center font-medium">
-                      {r.cc1 !== null ? (
-                        <span className="inline-block rounded-lg bg-[#f0f4fa] px-3 py-1 text-sm font-semibold text-[#0c2340]">
-                          {r.cc1} / 20
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3.5 text-center font-medium">
-                      {r.cc2 !== null ? (
-                        <span className="inline-block rounded-lg bg-[#f0f4fa] px-3 py-1 text-sm font-semibold text-[#0c2340]">
-                          {r.cc2} / 20
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3.5 text-center font-medium">
-                      {r.cc3 !== null ? (
-                        <span className="inline-block rounded-lg bg-[#f0f4fa] px-3 py-1 text-sm font-semibold text-[#0c2340]">
-                          {r.cc3} / 20
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3.5 text-right font-bold">
-                      {r.average !== null ? (
-                        <Badge
-                          tone={
-                            r.average >= 12
-                              ? "success"
-                              : r.average >= 10
-                                ? "warning"
-                                : "danger"
-                          }
-                        >
-                          {r.average} / 20
-                        </Badge>
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
+        {rows.length === 0 ? (
+          <div className="p-8 text-center text-sm text-[#5a7199]">
+            Aucune matière configurée pour le moment.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-[#c9d7ee] bg-[#f4f8fc]">
+                  <th className="px-5 py-3.5 font-bold text-[#002b5b]">Matière</th>
+                  <th className="px-5 py-3.5 font-semibold text-[#3d5278]">Coefficient</th>
+                  <th className="px-5 py-3.5 font-semibold text-[#002b5b] text-center">
+                    Contrôle Continu 1
+                  </th>
+                  <th className="px-5 py-3.5 font-semibold text-[#002b5b] text-center">
+                    Contrôle Continu 2
+                  </th>
+                  <th className="px-5 py-3.5 font-semibold text-[#002b5b] text-center">
+                    Contrôle Continu 3
+                  </th>
+                  <th className="px-5 py-3.5 font-bold text-[#002b5b] text-right">
+                    Moyenne Matière
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, index) => {
+                  const isEven = index % 2 === 0;
+                  const slots = [r.cc1, r.cc2, r.cc3];
+                  return (
+                    <tr
+                      key={r.subjectId}
+                      className={`border-b border-[#eef2f7] transition hover:bg-[#fbfdff] ${
+                        isEven ? "bg-white" : "bg-[#fcfdfe]"
+                      }`}
+                    >
+                      <td className="px-5 py-3.5 font-semibold text-[#0c2340]">
+                        <div>{r.subjectName}</div>
+                        {r.extraGrades.length > 0 ? (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {r.extraGrades.map((eg, i) => (
+                              <span
+                                key={i}
+                                className="rounded bg-[#eef5fc] px-1.5 py-0.5 text-[10px] font-medium text-[#264c93]"
+                              >
+                                {eg.title || eg.type} : {eg.score20}/20
+                                {eg.coefficient !== 1 ? ` (×${eg.coefficient})` : ""}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td className="px-5 py-3.5 text-xs text-[#3d5278]">
+                        Coeff. {r.coefficient}
+                      </td>
+                      {slots.map((slot, slotIdx) => (
+                        <td key={slotIdx} className="px-5 py-3.5 text-center font-medium">
+                          {slot !== null ? (
+                            <span
+                              title={slot.title || slot.type}
+                              className="inline-block rounded-lg bg-[#f0f4fa] px-3 py-1 text-sm font-semibold text-[#0c2340]"
+                            >
+                              {slot.score20} / 20
+                              {slot.coefficient !== 1 ? (
+                                <span className="ml-1 text-[10px] text-[#5a7199]">
+                                  (×{slot.coefficient})
+                                </span>
+                              ) : null}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </td>
+                      ))}
+                      <td className="px-5 py-3.5 text-right font-bold">
+                        {r.average !== null ? (
+                          <Badge
+                            tone={
+                              r.average >= 12
+                                ? "success"
+                                : r.average >= 10
+                                  ? "warning"
+                                  : "danger"
+                            }
+                          >
+                            {r.average} / 20
+                          </Badge>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
             {/* Ligne en bas du tableau : Note du Semestre */}
             <tfoot>
               <tr className="border-t-2 border-[#002b5b] bg-[#e5f8f3]/70">
@@ -345,6 +316,7 @@ export default async function StudentGradesPage({
             </tfoot>
           </table>
         </div>
+        )}
       </Card>
 
       {/* Bulletins officiels */}

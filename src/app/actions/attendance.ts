@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { AttendanceStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAccess } from "@/lib/auth";
-import { notifyParentsOfStudent } from "@/lib/notifications";
+import { notifyParentsOfStudent, notifyUser } from "@/lib/notifications";
 import { saveSecureJustificatif } from "@/lib/storage";
 import { logAuditEvent } from "@/lib/audit";
 import { fullName } from "@/lib/utils";
@@ -64,6 +64,17 @@ export async function saveAttendanceAction(
         where: { id: studentId },
       });
       if (student) {
+        if (student.userId) {
+          await notifyUser({
+            schoolId,
+            userId: student.userId,
+            type: "ATTENDANCE",
+            title: status === "ABSENT" ? "Absence enregistrée" : "Retard enregistré",
+            message: `Une absence a été signalée le ${date.toLocaleDateString("fr-FR")}. Veuillez inviter vos parents à la justifier depuis leur espace.`,
+            link: `/s/${schoolId}/student/attendance`,
+          });
+        }
+
         await notifyParentsOfStudent({
           schoolId,
           studentId,
@@ -79,6 +90,9 @@ export async function saveAttendanceAction(
   }
 
   revalidatePath(`/s/${schoolId}/attendance`);
+  revalidatePath(`/s/${schoolId}/student`);
+  revalidatePath(`/s/${schoolId}/student/attendance`);
+  revalidatePath(`/s/${schoolId}/student/notifications`);
   revalidatePath(`/s/${schoolId}/parent`);
 }
 
@@ -92,6 +106,13 @@ export async function justifyAttendanceAction(
     "PARENT",
     "STUDENT",
   ]);
+
+  const existing = await prisma.attendance.findUnique({
+    where: { id: attendanceId },
+  });
+  if (!existing || existing.schoolId !== schoolId) {
+    return { success: false, error: "Absence introuvable." };
+  }
 
   const reasonType = String(
     formData.get("reasonType") || formData.get("reason") || "Certificat médical"
@@ -113,6 +134,10 @@ export async function justifyAttendanceAction(
       fileDisplayName = fileName;
     } catch (err) {
       console.error("Erreur enregistrement sécurisé justificatif:", err);
+      return {
+        success: false,
+        error: "Impossible d'enregistrer le fichier justificatif sur le serveur.",
+      };
     }
   }
 
@@ -159,6 +184,7 @@ export async function justifyAttendanceAction(
     success: true,
     justificationStatus: "EN_ATTENTE_VALIDATION",
     reason: updated.reason,
+    hasFile: Boolean(storedFilePath),
   };
 }
 
@@ -180,7 +206,7 @@ export async function reviewAttendanceJustificationAction(
 
   if (!attendance) return { success: false, error: "Absence introuvable" };
 
-  const updated = await prisma.attendance.update({
+  await prisma.attendance.update({
     where: { id: attendanceId },
     data: {
       justified: isApproved,

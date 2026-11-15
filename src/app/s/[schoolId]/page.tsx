@@ -14,6 +14,7 @@ export default async function SchoolDashboard({
 
   if (role === "PARENT") redirect(`/s/${schoolId}/parent`);
   if (role === "TEACHER") redirect(`/s/${schoolId}/teacher`);
+  if (role === "STUDENT") redirect(`/s/${schoolId}/student`);
 
   const [students, teachers, classes, unpaid] = await Promise.all([
     prisma.student.count({ where: { schoolId, active: true } }),

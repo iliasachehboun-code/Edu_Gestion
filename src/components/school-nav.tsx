@@ -23,28 +23,25 @@ function isActive(pathname: string, href: string, schoolId: string) {
   return pathname.startsWith(href);
 }
 
-export function SchoolNav({
+function NavContent({
   schoolId,
   schoolName,
   userName,
   role,
-  items = [],
-  sections = [],
-  unreadNotificationsCount = 0,
-  recentNotifications = [],
+  items,
+  sections,
+  pathname,
+  onNavigate,
 }: {
   schoolId: string;
   schoolName: string;
   userName: string;
   role: string;
-  items?: NavItem[];
-  sections?: NavSection[];
-  unreadNotificationsCount?: number;
-  recentNotifications?: NotificationData[];
+  items: NavItem[];
+  sections: NavSection[];
+  pathname: string;
+  onNavigate: () => void;
 }) {
-  const pathname = usePathname();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
   const linkClass = (href: string) =>
     cn(
       "block rounded-xl px-3 py-2 text-sm font-medium transition",
@@ -53,7 +50,7 @@ export function SchoolNav({
         : "text-[#e8f1ff] hover:bg-white/10 hover:text-white"
     );
 
-  const NavContent = () => (
+  return (
     <>
       <div className="border-b border-white/10 px-4 py-5">
         <div className="flex items-center gap-3">
@@ -92,7 +89,7 @@ export function SchoolNav({
                   key={item.href}
                   href={item.href}
                   prefetch={true}
-                  onClick={() => setMobileMenuOpen(false)}
+                  onClick={onNavigate}
                   className={linkClass(item.href)}
                 >
                   {item.label}
@@ -108,7 +105,7 @@ export function SchoolNav({
                 key={item.href}
                 href={item.href}
                 prefetch={true}
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={onNavigate}
                 className={linkClass(item.href)}
               >
                 {item.label}
@@ -128,6 +125,31 @@ export function SchoolNav({
       </form>
     </>
   );
+}
+
+export function SchoolNav({
+  schoolId,
+  schoolName,
+  userName,
+  role,
+  items = [],
+  sections = [],
+  unreadNotificationsCount = 0,
+  recentNotifications = [],
+  notificationsHref,
+}: {
+  schoolId: string;
+  schoolName: string;
+  userName: string;
+  role: string;
+  items?: NavItem[];
+  sections?: NavSection[];
+  unreadNotificationsCount?: number;
+  recentNotifications?: NotificationData[];
+  notificationsHref?: string | null;
+}) {
+  const pathname = usePathname();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <>
@@ -154,6 +176,7 @@ export function SchoolNav({
             unreadCount={unreadNotificationsCount}
             notifications={recentNotifications}
             variant="dark"
+            notificationsHref={notificationsHref}
           />
 
           <button
@@ -175,14 +198,32 @@ export function SchoolNav({
             onClick={() => setMobileMenuOpen(false)}
           />
           <aside className="fixed inset-y-0 left-0 flex w-72 flex-col bg-[#002b5b] text-[#f3f7ff] shadow-2xl animate-in slide-in-from-left duration-200">
-            <NavContent />
+            <NavContent
+              schoolId={schoolId}
+              schoolName={schoolName}
+              userName={userName}
+              role={role}
+              items={items}
+              sections={sections}
+              pathname={pathname}
+              onNavigate={() => setMobileMenuOpen(false)}
+            />
           </aside>
         </div>
       )}
 
       {/* 🖥️ Sidebar fixe pour ordinateurs (Desktop >= md) */}
       <aside className="no-print hidden md:flex w-72 shrink-0 flex-col bg-[#002b5b] text-[#f3f7ff]">
-        <NavContent />
+        <NavContent
+          schoolId={schoolId}
+          schoolName={schoolName}
+          userName={userName}
+          role={role}
+          items={items}
+          sections={sections}
+          pathname={pathname}
+          onNavigate={() => setMobileMenuOpen(false)}
+        />
       </aside>
     </>
   );
