@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { BrandLogo } from "@/components/brand-logo";
@@ -142,6 +143,22 @@ export function SchoolNav({
       return !hasActive;
     }
     return Boolean(state[title]);
+  }
+
+  if (role === "Enseignant") {
+    return <aside className="no-print teacher-sidebar">
+      <Link href={`/s/${schoolId}/teacher`} className="teacher-school-brand">
+        <Image src="/henri-moissan.png" alt="Henri Moissan" width={94} height={58} priority />
+        <span>{schoolName}<small>Espace enseignant</small></span>
+      </Link>
+      <nav aria-label="Navigation professeur">
+        {items.map(item => <Link key={item.href} href={item.href} aria-current={isActive(pathname, item.href, schoolId) ? "page" : undefined}>{item.label}</Link>)}
+      </nav>
+      <div className="teacher-sidebar-footer">
+        <p>{userName}<small>Professeur</small></p>
+        <form action={logoutAction}><button type="submit">Se déconnecter</button></form>
+      </div>
+    </aside>;
   }
 
   const linkClass = (href: string) =>

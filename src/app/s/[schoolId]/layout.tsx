@@ -83,10 +83,10 @@ export default async function SchoolLayout({
   } else if (role === "TEACHER") {
     items = [
       { href: `${base}/teacher`, label: "Tableau de bord" },
-      { href: `${base}/grades`, label: "Examens et notes" },
-      { href: `${base}/homework`, label: "Devoirs et évaluations" },
-      { href: `${base}/attendance`, label: "Présences et absences" },
-      { href: `${base}/schedule`, label: "Emplois du temps" },
+      { href: `${base}/teacher/calendar`, label: "Mon calendrier" },
+      { href: `${base}/teacher/courses`, label: "Mes cours" },
+      { href: `${base}/teacher/marks`, label: "Examens et notes" },
+      { href: `${base}/teacher/students`, label: "Mes étudiants" },
     ];
   } else {
     sections = [
@@ -153,7 +153,7 @@ export default async function SchoolLayout({
         : null;
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row bg-[#f4f8fc]">
+    <div className={`flex min-h-screen flex-col md:flex-row bg-[#f4f8fc]${role === "TEACHER" ? " teacher-shell" : ""}`}>
       <SchoolNav
         schoolId={schoolId}
         schoolName={access.school.name}

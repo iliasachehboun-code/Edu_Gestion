@@ -44,7 +44,7 @@ export default function RootLayout({
       className={`${dmSans.variable} ${fraunces.variable} h-full`}
       suppressHydrationWarning
     >
-      <body className="min-h-full antialiased">
+      <body className="min-h-full antialiased" suppressHydrationWarning>
         <Script id="density-boot" strategy="beforeInteractive">{`(function(){try{var d=localStorage.getItem("edugestion:density");if(d==="compact")document.documentElement.dataset.density="compact";else document.documentElement.dataset.density="comfortable";}catch(e){}})();`}</Script>
         {children}
       </body>

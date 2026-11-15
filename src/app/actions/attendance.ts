@@ -8,6 +8,7 @@ import { notifyParentsOfStudent, notifyUser } from "@/lib/notifications";
 import { saveSecureJustificatif } from "@/lib/storage";
 import { logAuditEvent } from "@/lib/audit";
 import { fullName } from "@/lib/utils";
+import { assertClassAttendanceEditable } from "@/lib/attendance-lock";
 
 export async function saveAttendanceAction(
   schoolId: string,
@@ -24,6 +25,7 @@ export async function saveAttendanceAction(
 
   const date = new Date(dateStr);
   date.setHours(12, 0, 0, 0);
+  await assertClassAttendanceEditable(schoolId, classId, date);
 
   const teacher = await prisma.teacher.findFirst({
     where: { schoolId, userId: user.id },
@@ -104,7 +106,6 @@ export async function justifyAttendanceAction(
   const { user } = await requireSchoolAccess(schoolId, [
     "SCHOOL_ADMIN",
     "PARENT",
-    "STUDENT",
   ]);
 
   const existing = await prisma.attendance.findUnique({
@@ -113,6 +114,8 @@ export async function justifyAttendanceAction(
   if (!existing || existing.schoolId !== schoolId) {
     return { success: false, error: "Absence introuvable." };
   }
+
+  await assertClassAttendanceEditable(schoolId, existing.classId, existing.date);
 
   const reasonType = String(
     formData.get("reasonType") || formData.get("reason") || "Certificat médical"
@@ -168,7 +171,7 @@ export async function justifyAttendanceAction(
     schoolId,
     userId: user.id,
     userName: fullName(user.firstName, user.lastName),
-    userRole: user.globalRole === "SUPER_ADMIN" ? "SUPER_ADMIN" : "STUDENT",
+    userRole: user.globalRole === "SUPER_ADMIN" ? "SUPER_ADMIN" : "PARENT",
     action: "JUSTIFICATIF_UPLOAD",
     resourceType: "ATTENDANCE",
     resourceId: attendanceId,

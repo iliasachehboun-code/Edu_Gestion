@@ -1,0 +1,61 @@
+﻿.school-login-page { display:grid; grid-template-columns: minmax(0,1.08fr) minmax(0,1fr); min-height:100svh; background:#fcfbf8; color:#233b48; }
+.school-login-story { position:relative; min-height:100svh; display:flex; flex-direction:column; overflow:hidden; background:#12394c; color:#f4eee1; padding:38px 7.5% 26px; }
+.school-login-brand { display:flex; align-items:center; gap:15px; width:fit-content; font-size:22px; font-weight:600; letter-spacing:-.6px; position:relative; z-index:1; }
+.school-login-mark { display:flex; align-items:center; justify-content:center; background:#f4eee1; width:76px; height:66px; border-radius:2px; }
+.school-login-mark img { width:70px; height:auto; }
+.school-login-brand small { display:block; font-size:9px; font-weight:400; letter-spacing:1.8px; margin-top:7px; color:#b5c6c8; }
+.school-login-editorial { position:relative; z-index:1; margin-top:clamp(46px,8vh,100px); }
+.school-login-kicker { display:flex; align-items:center; gap:12px; font-size:12px; letter-spacing:.3px; color:#c8d4d3; margin-bottom:23px; }
+.school-login-kicker > span { display:block; width:26px; height:1px; background:#c6ab72; }
+.school-login-editorial h1 { font-family:var(--font-fraunces),Georgia,serif; font-size:clamp(40px,4.35vw,72px); font-weight:400; line-height:1.12; letter-spacing:-2px; }
+.school-login-editorial h1 em { color:#ddc18b; font-weight:400; }
+.school-login-story-copy { margin-top:25px; color:#bbced1; font-size:13px; line-height:1.9; }
+.school-login-art { margin:6px -11% -14px; flex:1; display:flex; align-items:flex-end; min-height:230px; }
+.school-login-art img { width:100%; max-height:380px; height:auto; object-fit:contain; object-position:bottom; }
+.school-login-story-foot { display:flex; justify-content:space-between; gap:14px; border-top:1px solid #56717b; padding-top:19px; font-size:10px; color:#c5d0cf; position:relative; z-index:1; }
+.school-login-story-foot > span:last-child { color:#e1c894; }
+.school-login-access { display:flex; flex-direction:column; min-width:0; padding:39px 9% 25px; }
+.school-login-access-top { display:flex; justify-content:space-between; gap:16px; font-size:11px; color:#7b8585; }
+.school-login-access-top > span { color:#3b515a; font-weight:500; }
+.school-login-access-top a span { margin-left:6px; }
+.school-login-login { width:100%; max-width:370px; margin:auto; padding:64px 0 45px; }
+.school-login-eyebrow { font-size:9px; font-weight:600; letter-spacing:2px; color:#99845d; margin:0 0 18px; }
+.school-login-login h2 { font-family:var(--font-fraunces),Georgia,serif; font-size:43px; font-weight:400; line-height:1.16; letter-spacing:-1.4px; color:#213e4d; }
+.school-login-intro { font-size:13px; color:#7c8584; line-height:1.75; margin-top:18px; max-width:300px; }
+.school-login-form { margin-top:35px; }
+.school-login-field { margin-bottom:22px; }
+.school-login-field label { display:block; font-size:12px; font-weight:500; margin-bottom:10px; color:#3d5058; }
+.school-login-field input { display:block; width:100%; height:49px; border:1px solid #d8ddd8; border-radius:5px; background:#fffefa; padding:0 14px; color:#233b48; font-size:14px; transition:border-color .15s,box-shadow .15s; }
+.school-login-field input::placeholder { color:#a0a7a1; font-size:12px; }
+.school-login-field input:focus-visible { outline:2px solid #abc0c4; outline-offset:2px; border-color:#698e97; }
+.school-login-password { position:relative; }
+.school-login-password input { padding-right:76px; }
+.school-login-password button { position:absolute; top:0; bottom:0; right:14px; color:#768480; font-size:10px; }
+.school-login-submit { display:flex; align-items:center; justify-content:space-between; width:100%; min-height:49px; margin-top:28px; border-radius:5px; padding:0 17px; background:#163f52; color:#fff; font-size:12px; font-weight:500; transition:background .15s; }
+.school-login-submit:hover { background:#235b6f; }
+.school-login-submit span { font-size:18px; font-weight:400; }
+.school-login-submit:disabled { opacity:.6; cursor:wait; }
+.school-login-help { border-top:1px solid #e4e5df; margin-top:29px; padding-top:22px; font-size:11px; color:#8b918a; line-height:1.9; }
+.school-login-help a { display:inline-block; margin-top:5px; color:#42606a; }
+.school-login-help a:hover,.school-login-access-top a:hover { text-decoration:underline; text-underline-offset:4px; }
+.school-login-help a span { margin-left:7px; }
+.school-login-demo { margin-top:25px; font-size:10px; color:#91978f; }
+.school-login-demo summary { cursor:pointer; }
+.school-login-demo dl { padding-top:12px; }
+.school-login-demo dl > div { padding:6px 0; }
+.school-login-demo dt { color:#50656b; font-weight:500; }
+.school-login-demo dd { margin-top:3px; overflow-wrap:anywhere; }
+.school-login-footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; padding-top:18px; border-top:1px solid #e4e5df; font-size:10px; color:#90968f; }
+.school-login-error { border-left:2px solid #a34d42; background:#fbefea; color:#9c433b; padding:12px; margin-bottom:20px; font-size:12px; line-height:1.6; }
+@media(min-width:1600px) { .school-login-story { padding-left:10%; padding-right:10%; } .school-login-login { max-width:400px; } .school-login-login h2 { font-size:49px; } .school-login-field input { height:54px; } .school-login-submit { min-height:54px; } }
+@media(max-width:1000px) { .school-login-page { grid-template-columns:1fr 1fr; } .school-login-story { padding:30px 7% 22px; } .school-login-brand { font-size:18px; gap:10px; } .school-login-brand small { font-size:8px; letter-spacing:1px; } .school-login-mark { width:62px; height:58px; } .school-login-mark img { width:58px; } .school-login-access { padding:35px 9% 22px; } .school-login-login h2 { font-size:37px; } .school-login-story-foot { flex-direction:column; gap:7px; } }
+@media(max-width:700px) { .school-login-page { display:flex; flex-direction:column; } .school-login-story { min-height:auto; padding:22px 7% 28px; } .school-login-editorial { margin-top:30px; } .school-login-editorial h1 { font-size:38px; letter-spacing:-1px; } .school-login-editorial h1 br { display:none; } .school-login-kicker { margin-bottom:12px; font-size:11px; } .school-login-story-copy { margin-top:15px; font-size:12px; } .school-login-art { position:absolute; right:-70px; bottom:-24px; width:230px; min-height:0; opacity:.2; margin:0; } .school-login-story-foot { display:none; } .school-login-access { padding:24px 7%; } .school-login-login { padding:37px 0; max-width:430px; } .school-login-login h2 { font-size:35px; } .school-login-login h2 br { display:none; } .school-login-form { margin-top:26px; } .school-login-footer { margin-top:10px; } }
+@media(prefers-reduced-motion:reduce) { .school-login-page * { transition:none; } }
+/* Keep the login independent from the shared application's mobile main padding. */
+main.school-login-page { padding:0; width:100%; min-width:0; }
+.school-login-story { min-width:0; }
+@media(max-width:700px) {
+ .school-login-editorial h1 br,.school-login-login h2 br { display:initial; }
+ .school-login-access { width:100%; }
+ .school-login-login { min-width:0; }
+}

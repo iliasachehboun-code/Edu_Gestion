@@ -51,3 +51,24 @@ datasource db {
 ```
 
 Puis `DATABASE_URL="postgresql://..."` et `npx prisma migrate dev`.
+
+## Espace professeur
+
+Connexion : `prof@ecole-demo.fr` / `demo123` (données de démonstration).
+
+- `/s/[schoolId]/teacher` : tableau de bord, étudiants uniques et suivi des séances.
+- `/s/[schoolId]/teacher/calendar` : vues mois, semaine, jour et agenda ; appel par créneau.
+- `/s/[schoolId]/teacher/courses` : cours affectés, contenus pédagogiques et progression.
+- `/s/[schoolId]/teacher/students` : étudiants actifs inscrits dans les groupes du professeur pour l’année courante.
+
+Le taux de présence du professeur correspond aux séances confirmées par un appel enregistré, divisées par les occurrences passées de son emploi du temps hebdomadaire dans l’année courante. Le jour courant est exclu du dénominateur. Ce suivi déclaratif ne constitue pas un pointage administratif ; les vacances et annulations ne sont pas encore modélisées.
+
+Chaque module a un objectif modifiable de 24 séances par défaut. Le volume horaire est estimé à partir de la durée moyenne de ses créneaux. Les ressources peuvent contenir un lien HTTP(S) vers un support. Les examens et devoirs publiés sont des contenus du cours ; les notes restent gérées dans le module existant de notation.
+
+Après mise à jour du schéma : `npx prisma generate`, puis `npx prisma migrate deploy` (arrêter le serveur sous Windows avant la génération si le moteur Prisma est verrouillé).
+
+Vérification d’intégration : démarrer `npm run dev`, puis exécuter `node scripts/verify-teacher.cjs`. Le script crée ses propres données temporaires et les supprime après les vérifications.
+
+L’appel par séance s’ouvre 15 minutes après l’heure de début, selon le fuseau `Africa/Casablanca`. Le professeur peut appliquer « Tous présents » ou « Tous absents », puis corriger individuellement chaque étudiant. Le bouton « Valider définitivement l’appel » verrouille la séance ; toute nouvelle sauvegarde est rejetée côté serveur, et les anciens écrans de présence respectent aussi ce verrouillage. Les appels déjà enregistrés avant cette règle sont considérés comme validés.
+
+Test des limites horaires : `npx tsx scripts/verify-attendance-policy.ts`.

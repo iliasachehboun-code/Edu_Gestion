@@ -48,25 +48,27 @@ async function main() {
     passwordHash: demoHash,
   });
 
+  const localToday = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Casablanca", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const startYear = Number(localToday.slice(0, 4)) - (Number(localToday.slice(5, 7)) < 9 ? 1 : 0);
+  const yearName = `${startYear}-${startYear + 1}`;
+  await prisma.academicYear.updateMany({ where: { schoolId: school.id, isCurrent: true }, data: { isCurrent: false } });
   const year = await prisma.academicYear.upsert({
-    where: { schoolId_name: { schoolId: school.id, name: "2025-2026" } },
+    where: { schoolId_name: { schoolId: school.id, name: yearName } },
     update: { isCurrent: true },
     create: {
       schoolId: school.id,
-      name: "2025-2026",
-      startDate: new Date("2025-09-01"),
-      endDate: new Date("2026-06-30"),
+      name: yearName,
+      startDate: new Date(`${startYear}-09-01`),
+      endDate: new Date(`${startYear + 1}-08-31`),
       isCurrent: true,
     },
   });
 
   const termSpecs = [
-    { name: "Semestre 1", order: 1, start: "2025-09-01", end: "2026-01-31" },
-    { name: "Semestre 2", order: 2, start: "2026-02-01", end: "2026-06-30" },
+    { name: "Trimestre 1", order: 1, start: `${startYear}-09-01`, end: `${startYear}-12-20` },
+    { name: "Trimestre 2", order: 2, start: `${startYear + 1}-01-05`, end: `${startYear + 1}-03-28` },
+    { name: "Trimestre 3", order: 3, start: `${startYear + 1}-04-07`, end: `${startYear + 1}-06-30` },
   ];
-  await prisma.term.deleteMany({
-    where: { academicYearId: year.id, order: { gt: 2 } },
-  });
   for (const t of termSpecs) {
     const existing = await prisma.term.findFirst({
       where: { academicYearId: year.id, order: t.order },

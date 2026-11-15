@@ -1,0 +1,25 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="900" height="540" viewBox="0 0 900 540" fill="none">
+ <title>Illustration d’une cour d’école et de ses arcades</title>
+ <defs><pattern id="lines" width="14" height="14" patternUnits="userSpaceOnUse"><path d="M0 14 14 0" stroke="#BAA585" stroke-width=".6" opacity=".28"/></pattern></defs>
+ <path d="M0 417 448 296 900 407V540H0Z" fill="#D9C7A6"/>
+ <path d="m85 208 361-83 330 90-347 96Z" fill="#D9C7A6"/>
+ <path d="M85 208v210l344 93V303Z" fill="#E8DCC5"/>
+ <path d="M429 303v208l347-102V215Z" fill="#F5EDDE"/>
+ <path d="m85 208 344 95 347-88v-20l-347 87-344-94Z" fill="#F8F0E0"/>
+ <path d="M429 303v208" stroke="#C5B28E" stroke-width="3"/>
+ <path d="M85 238 429 332 776 245" stroke="#C5B28E" stroke-width="2"/>
+ <path d="M467 490V372c0-42 53-56 53-14v116m31-9V349c0-42 53-56 53-14v115m31-9V326c0-42 53-56 53-14v114m31-9V304c0-42 32-47 32-11v114" fill="#153D50"/>
+ <path d="M124 428V303c0-39 45-27 45 12v125m39 10V326c0-39 45-27 45 12v124m38 10V349c0-39 45-27 45 12v123m38 10V372c0-39 27-27 27 12v119" fill="#43616A"/>
+ <path d="m95 447 332 91 365-108M441 538V512m-227-35-51 63m483-69 124 69" stroke="#B6A07C" stroke-width="2"/>
+ <path d="M96 439V261l307 85v174Z" fill="url(#lines)"/>
+ <path d="m250 185 193-45 172 47-184 48Z" fill="#173D50"/>
+ <path d="m283 185 159-35 135 36-147 37Z" fill="#6B877F"/>
+ <path d="M18 443V299m0 36c-57-3-49-82-7-91-20-49 46-79 62-31 54-1 56 72 12 84 3 43-42 57-67 38Z" fill="#6C8670"/>
+ <path d="M44 454V315m0 31-30-36m30 18 32-45" stroke="#294E49" stroke-width="5"/>
+ <path d="M834 407V217m0 40c-56 0-68-60-32-89-23-43 37-88 62-43 52-4 77 58 35 85 19 45-29 72-65 47Z" fill="#7B9477"/>
+ <path d="M849 438V250m0 36-35-39m35 9 29-33" stroke="#3B6052" stroke-width="6"/>
+ <path d="M0 460h88m705-15h107" stroke="#0D3043" stroke-width="2"/>
+ <path d="m509 505 32-9 24 6-31 10Z" fill="#AF694B"/>
+ <path d="M518 498V464m0 15-10-10m10 6 8-17" stroke="#506F59" stroke-width="4"/>
+ <path d="M510 461c-19-18-7-30 5-13 9-24 24-17 12 3 23-8 23 10 0 12" fill="#83966E"/>
+</svg>
