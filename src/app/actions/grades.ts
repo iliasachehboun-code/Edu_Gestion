@@ -4,8 +4,36 @@ import { revalidatePath } from "next/cache";
 import { GradeType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAccess } from "@/lib/auth";
-import { generateReportCard } from "@/lib/grades";
+import { generateReportCard, PASSING_AVERAGE } from "@/lib/grades";
 import { notifyParentsOfStudent } from "@/lib/notifications";
+import { fullName } from "@/lib/utils";
+
+async function alertParentsIfBelowAverage(params: {
+  schoolId: string;
+  studentId: string;
+  termName: string;
+  average: number | null | undefined;
+  reportCardId: string;
+}) {
+  if (params.average == null || params.average >= PASSING_AVERAGE) return;
+
+  const student = await prisma.student.findUnique({
+    where: { id: params.studentId },
+  });
+  if (!student) return;
+
+  await notifyParentsOfStudent({
+    schoolId: params.schoolId,
+    studentId: params.studentId,
+    type: "GRADE",
+    title: "Alerte bulletin — moyenne insuffisante",
+    message: `Le bulletin ${params.termName} de ${fullName(
+      student.firstName,
+      student.lastName
+    )} indique une moyenne de ${params.average}/20 (seuil ${PASSING_AVERAGE}/20). Merci de prendre contact avec l'établissement.`,
+    link: `/s/${params.schoolId}/parent/bulletins/${params.reportCardId}`,
+  });
+}
 
 export async function createGradeAction(schoolId: string, formData: FormData) {
   const { user } = await requireSchoolAccess(schoolId, [
@@ -82,14 +110,24 @@ export async function generateBulletinAction(
     publish,
   });
 
-  if (publish && card) {
-    await notifyParentsOfStudent({
+  if (card) {
+    if (publish) {
+      await notifyParentsOfStudent({
+        schoolId,
+        studentId,
+        type: "GRADE",
+        title: "Bulletin disponible",
+        message: `Le bulletin ${card.term.name} est disponible.`,
+        link: `/s/${schoolId}/parent/bulletins/${card.id}`,
+      });
+    }
+
+    await alertParentsIfBelowAverage({
       schoolId,
       studentId,
-      type: "GRADE",
-      title: "Bulletin disponible",
-      message: `Le bulletin ${card.term.name} est disponible.`,
-      link: `/s/${schoolId}/parent/bulletins/${card.id}`,
+      termName: card.term.name,
+      average: card.average,
+      reportCardId: card.id,
     });
   }
 
@@ -117,5 +155,14 @@ export async function publishBulletinAction(
     link: `/s/${schoolId}/parent/bulletins/${card.id}`,
   });
 
+  await alertParentsIfBelowAverage({
+    schoolId,
+    studentId: card.studentId,
+    termName: card.term.name,
+    average: card.average,
+    reportCardId: card.id,
+  });
+
   revalidatePath(`/s/${schoolId}/bulletins`);
+  revalidatePath(`/s/${schoolId}/parent`);
 }

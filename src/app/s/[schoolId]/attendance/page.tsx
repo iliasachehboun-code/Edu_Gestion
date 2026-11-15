@@ -115,7 +115,7 @@ export default async function AttendancePage({
         <div className="mb-6">
           <GuidedEmpty
             message="Aucune classe disponible. Créez une classe puis inscrivez des élèves."
-            actionHref={`/s/${schoolId}/classes`}
+            actionHref={`/s/${schoolId}/admissions`}
             actionLabel="Créer une classe"
           />
         </div>

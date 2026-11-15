@@ -1,6 +1,9 @@
 import { prisma } from "./prisma";
 import { round1 } from "./utils";
 
+/** Seuil d'alerte parent (moyenne générale /20). */
+export const PASSING_AVERAGE = 10;
+
 export async function computeSubjectAverage(
   studentId: string,
   subjectId: string,

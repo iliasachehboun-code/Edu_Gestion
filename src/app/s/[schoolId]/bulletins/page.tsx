@@ -19,6 +19,7 @@ import {
 } from "@/app/actions/grades";
 import { schoolTrail } from "@/components/breadcrumbs";
 import { GuidedEmpty } from "@/components/guided-empty";
+import { PASSING_AVERAGE } from "@/lib/grades";
 import { fullName } from "@/lib/utils";
 
 export default async function BulletinsPage({
@@ -51,7 +52,7 @@ export default async function BulletinsPage({
     <div>
       <PageHeader
         title="Bulletins"
-        description="Génération et publication des bulletins trimestriels."
+        description={`Génération et publication. Une alerte parent part automatiquement si la moyenne est inférieure à ${PASSING_AVERAGE}/20.`}
         breadcrumbs={schoolTrail(schoolId, {
           label: "Bulletins",
           path: "/bulletins",
@@ -81,7 +82,12 @@ export default async function BulletinsPage({
                     </Td>
                     <Td>{r.term.name}</Td>
                     <Td className="font-medium">
-                      {r.average != null ? `${r.average}/20` : "—"}
+                      <span className="inline-flex flex-wrap items-center gap-2">
+                        {r.average != null ? `${r.average}/20` : "—"}
+                        {r.average != null && r.average < PASSING_AVERAGE ? (
+                          <Badge tone="danger">Sous seuil</Badge>
+                        ) : null}
+                      </span>
                     </Td>
                     <Td>
                       <Badge tone={r.published ? "success" : "warning"}>
