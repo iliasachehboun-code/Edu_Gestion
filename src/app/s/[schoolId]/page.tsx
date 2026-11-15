@@ -161,10 +161,10 @@ export default async function SchoolDashboard({
             {classes}
           </p>
           <Link
-            href={`/s/${schoolId}/classes`}
+            href={`/s/${schoolId}/admissions`}
             className="mt-2 inline-block text-sm font-semibold text-brand hover:underline"
           >
-            Gérer les classes
+            Admissions
           </Link>
         </Card>
         <Card className="sm:col-span-2">

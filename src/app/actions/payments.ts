@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSchoolAccess } from "@/lib/auth";
 import { notifyParentsOfStudent } from "@/lib/notifications";
 import { redirectWithNotice } from "@/lib/flash";
+import { formatMoney, fullName } from "@/lib/utils";
 
 async function refreshFeeStatus(studentFeeId: string) {
   const fee = await prisma.studentFee.findUnique({
@@ -149,5 +150,100 @@ export async function recordPaymentAction(
   redirectWithNotice(
     `/s/${schoolId}/payments?tab=payer`,
     "Paiement enregistré."
+  );
+}
+
+export async function notifyFeeReminderAction(
+  schoolId: string,
+  studentFeeId: string
+) {
+  await requireSchoolAccess(schoolId, ["SCHOOL_ADMIN"]);
+
+  const fee = await prisma.studentFee.findFirst({
+    where: {
+      id: studentFeeId,
+      schoolId,
+      status: { in: ["PENDING", "OVERDUE"] },
+    },
+    include: {
+      student: true,
+      feeType: true,
+      payments: true,
+    },
+  });
+  if (!fee) return;
+
+  const paid = fee.payments.reduce((sum, p) => sum + p.amount, 0);
+  const remaining = Math.max(0, fee.amount - paid);
+  const statusLabel = fee.status === "OVERDUE" ? "en retard" : "en attente";
+
+  await notifyParentsOfStudent({
+    schoolId,
+    studentId: fee.studentId,
+    type: "PAYMENT",
+    title:
+      fee.status === "OVERDUE"
+        ? "Rappel — paiement en retard"
+        : "Rappel — paiement en attente",
+    message: `Frais « ${fee.feeType.name} » pour ${fullName(
+      fee.student.firstName,
+      fee.student.lastName
+    )} : ${statusLabel}. Reste à régler ${formatMoney(remaining)}.`,
+    link: `/s/${schoolId}/parent/payments`,
+  });
+
+  revalidatePath(`/s/${schoolId}/payments`);
+  revalidatePath(`/s/${schoolId}/parent`);
+  redirectWithNotice(
+    `/s/${schoolId}/payments?tab=alertes`,
+    "Parent(s) notifié(s) pour ce frais."
+  );
+}
+
+export async function notifyAllPendingOverdueAction(schoolId: string) {
+  await requireSchoolAccess(schoolId, ["SCHOOL_ADMIN"]);
+
+  const fees = await prisma.studentFee.findMany({
+    where: {
+      schoolId,
+      status: { in: ["PENDING", "OVERDUE"] },
+    },
+    include: {
+      student: true,
+      feeType: true,
+      payments: true,
+    },
+  });
+
+  let count = 0;
+  for (const fee of fees) {
+    const paid = fee.payments.reduce((sum, p) => sum + p.amount, 0);
+    const remaining = Math.max(0, fee.amount - paid);
+    const statusLabel = fee.status === "OVERDUE" ? "en retard" : "en attente";
+
+    await notifyParentsOfStudent({
+      schoolId,
+      studentId: fee.studentId,
+      type: "PAYMENT",
+      title:
+        fee.status === "OVERDUE"
+          ? "Rappel — paiement en retard"
+          : "Rappel — paiement en attente",
+      message: `Frais « ${fee.feeType.name} » pour ${fullName(
+        fee.student.firstName,
+        fee.student.lastName
+      )} : ${statusLabel}. Reste à régler ${formatMoney(remaining)}.`,
+      link: `/s/${schoolId}/parent/payments`,
+    });
+    count += 1;
+  }
+
+  revalidatePath(`/s/${schoolId}/payments`);
+  revalidatePath(`/s/${schoolId}/parent`);
+  redirectWithNotice(
+    `/s/${schoolId}/payments?tab=alertes`,
+    count
+      ? `${count} rappel(s) envoyé(s) aux parents.`
+      : "Aucun frais en attente ou en retard."
   );
 }

@@ -131,7 +131,7 @@ export default async function GradesPage({
         <div className="mb-6">
           <GuidedEmpty
             message="Aucune classe disponible."
-            actionHref={`/s/${schoolId}/classes`}
+            actionHref={`/s/${schoolId}/admissions`}
             actionLabel="Créer une classe"
           />
         </div>

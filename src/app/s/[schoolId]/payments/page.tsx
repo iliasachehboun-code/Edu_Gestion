@@ -18,10 +18,13 @@ import {
 import {
   assignFeeAction,
   createFeeTypeAction,
+  notifyAllPendingOverdueAction,
+  notifyFeeReminderAction,
   recordPaymentAction,
 } from "@/app/actions/payments";
 import { AutoFilterForm } from "@/components/auto-filter-form";
 import { schoolTrail } from "@/components/breadcrumbs";
+import { ConfirmSubmit } from "@/components/confirm-submit";
 import { ExportMenu } from "@/components/export-menu";
 import { GuidedEmpty } from "@/components/guided-empty";
 import { PaginationBar } from "@/components/pagination-bar";
@@ -58,6 +61,7 @@ function feeTone(status: string) {
 
 const TABS = [
   { id: "liste", label: "Liste des frais" },
+  { id: "alertes", label: "Alertes parents" },
   { id: "caisse", label: "Journal de caisse" },
   { id: "types", label: "Types de frais" },
   { id: "assigner", label: "Assigner" },
@@ -156,7 +160,7 @@ export default async function PaymentsPage({
   const cashTo = to ? new Date(to) : undefined;
   if (cashTo) cashTo.setHours(23, 59, 59, 999);
 
-  const [students, total, fees, unpaidFees, cashPayments, selectedClass] =
+  const [students, total, fees, unpaidFees, cashPayments, alertFees, selectedClass] =
     await Promise.all([
       prisma.student.findMany({
         where: {
@@ -222,6 +226,25 @@ export default async function PaymentsPage({
             take: 300,
           })
         : Promise.resolve([]),
+      tab === "alertes"
+        ? prisma.studentFee.findMany({
+            where: {
+              schoolId,
+              status: { in: ["PENDING", "OVERDUE"] },
+            },
+            include: {
+              student: true,
+              feeType: true,
+              payments: true,
+            },
+            orderBy: [
+              { status: "desc" },
+              { dueDate: "asc" },
+              { student: { lastName: "asc" } },
+            ],
+            take: 300,
+          })
+        : Promise.resolve([]),
       classId
         ? prisma.class.findFirst({ where: { id: classId, schoolId } })
         : Promise.resolve(null),
@@ -256,7 +279,9 @@ export default async function PaymentsPage({
           { label: "Finances", path: "/payments" },
           tab === "caisse"
             ? "Journal de caisse"
-            : selectedClass?.name
+            : tab === "alertes"
+              ? "Alertes parents"
+              : selectedClass?.name
         )}
         actions={
           tab === "liste" ? (
@@ -432,6 +457,87 @@ export default async function PaymentsPage({
                 query={query}
               />
             </>
+          )}
+        </>
+      ) : null}
+
+      {tab === "alertes" ? (
+        <>
+          <Card className="mb-6">
+            <SectionTitle>Relancer les parents</SectionTitle>
+            <p className="mb-4 text-sm text-muted">
+              Envoyez une notification aux parents pour chaque frais encore{" "}
+              <strong>en attente</strong> ou <strong>en retard</strong>.
+            </p>
+            <form action={notifyAllPendingOverdueAction.bind(null, schoolId)}>
+              <ConfirmSubmit
+                message={`Notifier les parents pour ${alertFees.length} frais en attente/retard ?`}
+                className="inline-flex min-h-10 items-center rounded-xl bg-brand px-3.5 py-2 text-sm font-semibold text-white hover:bg-brand-deep hover:no-underline"
+                disabled={alertFees.length === 0}
+              >
+                Notifier tous les parents concernés
+              </ConfirmSubmit>
+            </form>
+          </Card>
+
+          <p className="mb-3 text-sm text-muted">
+            {alertFees.length} frais à relancer
+          </p>
+          {alertFees.length === 0 ? (
+            <EmptyState message="Aucun frais en attente ou en retard." />
+          ) : (
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Élève</Th>
+                  <Th>Frais</Th>
+                  <Th>Reste</Th>
+                  <Th>Échéance</Th>
+                  <Th>Statut</Th>
+                  <Th></Th>
+                </tr>
+              </thead>
+              <tbody>
+                {alertFees.map((f) => {
+                  const paid = f.payments.reduce((s, p) => s + p.amount, 0);
+                  return (
+                    <tr key={f.id} className="hover:bg-brand-soft/40">
+                      <Td>
+                        {fullName(f.student.firstName, f.student.lastName)}
+                      </Td>
+                      <Td>{f.feeType.name}</Td>
+                      <Td className="font-medium">
+                        {formatMoney(f.amount - paid)}
+                      </Td>
+                      <Td>{formatDate(f.dueDate)}</Td>
+                      <Td>
+                        <Badge tone={feeTone(f.status)}>
+                          {STATUS_LABEL[f.status] || f.status}
+                        </Badge>
+                      </Td>
+                      <Td>
+                        <form
+                          action={async () => {
+                            "use server";
+                            await notifyFeeReminderAction(schoolId, f.id);
+                          }}
+                        >
+                          <ConfirmSubmit
+                            message={`Notifier les parents pour ${fullName(
+                              f.student.firstName,
+                              f.student.lastName
+                            )} ?`}
+                            className="text-sm font-medium text-brand hover:underline"
+                          >
+                            Notifier
+                          </ConfirmSubmit>
+                        </form>
+                      </Td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </Table>
           )}
         </>
       ) : null}

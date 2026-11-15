@@ -18,13 +18,15 @@ export async function createClassAction(schoolId: string, formData: FormData) {
   } catch {
     return;
   }
-  revalidatePath(`/s/${schoolId}/classes`);
+  revalidatePath(`/s/${schoolId}/admissions`);
+  revalidatePath(`/s/${schoolId}/students`);
 }
 
 export async function deleteClassAction(schoolId: string, classId: string) {
   await requireSchoolAccess(schoolId, ["SCHOOL_ADMIN"]);
   await prisma.class.delete({ where: { id: classId } });
-  revalidatePath(`/s/${schoolId}/classes`);
+  revalidatePath(`/s/${schoolId}/admissions`);
+  revalidatePath(`/s/${schoolId}/students`);
 }
 
 export async function createSubjectAction(schoolId: string, formData: FormData) {
